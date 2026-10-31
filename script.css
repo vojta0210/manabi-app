@@ -1,0 +1,80 @@
+/* Global Settings */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #ffffff;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f8f8f8; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up { animation: fadeIn 0.3s ease-out forwards; }
+
+/* Doc editor content styles */
+.doc-content h1 { font-size: 2em; font-weight: bold; margin: 0.67em 0; }
+.doc-content h2 { font-size: 1.5em; font-weight: bold; margin: 0.75em 0; }
+.doc-content h3 { font-size: 1.17em; font-weight: bold; margin: 0.83em 0; }
+.doc-content h4 { font-size: 1em; font-weight: bold; margin: 1.12em 0; }
+.doc-content blockquote {
+  border-left: 4px solid #e5e7eb;
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  color: #6b7280;
+  font-style: italic;
+  background: #f9fafb;
+}
+.doc-content pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 1em;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+.doc-content ul { list-style: disc; padding-left: 1.5em; margin: 0.5em 0; }
+.doc-content ol { list-style: decimal; padding-left: 1.5em; margin: 0.5em 0; }
+.doc-content li { margin: 0.25em 0; }
+.doc-content a { color: #3b82f6; text-decoration: underline; }
+.doc-content table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+.doc-content table td, .doc-content table th { border: 1px solid #e5e7eb; padding: 8px 12px; }
+.doc-content table th { background: #f5f5f5; font-weight: bold; }
+.doc-content p { margin: 0.5em 0; min-height: 1.5em; }
+
+/* Slides textarea */
+textarea:focus { outline: none; }
+
+/* Sheet cell selected state */
+input:focus { background: rgba(59, 130, 246, 0.05); }
+
+/* Sharp input style */
+.sharp-input {
+  border: 2px solid #e5e7eb;
+  padding: 1rem;
+}
+.sharp-input:focus {
+  border-color: #000;
+  outline: none;
+}
+
+/* Utility */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+
+/* Filter dropdown animation */
+@keyframes filterDropIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

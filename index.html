@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Homework Manager</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Connect External CSS -->
+    <link rel="stylesheet" href="script.css">
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+    
+    <!-- App Root Container -->
+    <div id="root"></div>
+
+    <!-- Supabase client (must load before the app scripts below) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+    <!-- App scripts — plain <script> tags (no bundler, no ES modules), so order matters.
+         Each file is a chunk of the same global scope java.js used to be; see js/*.js
+         header comments for what each one contains and depends on. bootstrap.js must be
+         loaded last since it's what actually starts the app. -->
+    <script src="js/config.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/ui-core.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/actions.js"></script>
+    <script src="js/schedule.js"></script>
+    <script src="js/view-auth.js"></script>
+    <script src="js/view-dashboard.js"></script>
+    <script src="js/view-assignment.js"></script>
+    <script src="js/editor-doc.js"></script>
+    <script src="js/editor-slides.js"></script>
+    <script src="js/editor-sheets.js"></script>
+    <script src="js/view-grades.js"></script>
+    <script src="js/view-settings.js"></script>
+    <script src="js/view-schedule.js"></script>
+    <script src="js/bootstrap.js"></script>
+</body>
+</html>
