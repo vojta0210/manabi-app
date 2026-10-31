@@ -387,15 +387,25 @@ async function saveStudentByTeacher() {
 }
 
 // ==============================================
-// ANNOUNCEMENTS (oznámení) — principal broadcasts a short message to the whole school.
-// See patch_grade_comments_announcements.sql for the table/RLS, AnnouncementsView() in
-// view-grades.js for the principal's composer+list, AnnouncementBanner() in
-// view-dashboard.js for what teachers/students see.
+// ANNOUNCEMENTS (oznámení) — principal broadcasts a short message to a chosen audience:
+// everyone, all teachers, all students, one ročník (grade), or one school class. See
+// patch_announcement_targeting.sql (and patch_grade_comments_announcements.sql, which
+// created the base table) for the table/RLS, AnnouncementsView() in view-grades.js for the
+// principal's composer+list, AnnouncementBanner() in view-dashboard.js for what teachers
+// and students see — the server's RLS policy, not this file, decides who receives what.
 // ==============================================
 async function postAnnouncement() {
   const message = (state.newAnnouncementText || '').trim();
   if (!message) return;
-  const { error } = await sb.from('announcements').insert({ principal_id: state.currentUser.id, message });
+  const audience = state.newAnnouncementAudience || 'all';
+  const row = { principal_id: state.currentUser.id, message, audience };
+  if (audience === 'grade') {
+    row.target_grade = Number(state.newAnnouncementGrade) || 1;
+  } else if (audience === 'class') {
+    if (!state.newAnnouncementSchoolClassId) return alert('Select a class first.');
+    row.target_school_class_id = Number(state.newAnnouncementSchoolClassId);
+  }
+  const { error } = await sb.from('announcements').insert(row);
   if (error) { alert('Could not post announcement: ' + error.message); return; }
   state.newAnnouncementText = '';
   await fetchAnnouncements();

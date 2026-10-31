@@ -83,12 +83,16 @@ let state = {
   scheduleEditingClassId: null, // principal: which school class's grid is open for editing
   scheduleDragClassroomId: null, // principal: classroom id currently being dragged from the subject sidebar
 
-  // Announcements (oznámení) — principal broadcasts a short message, read by every signed-in
-  // profile (teacher + student). See patch_grade_comments_announcements.sql for the table/RLS,
+  // Announcements (oznámení) — principal broadcasts a short message to a chosen audience
+  // (everyone, all teachers, all students, one ročník, or one school class), read by every
+  // signed-in profile it's targeted at. See patch_announcement_targeting.sql for the table/RLS,
   // AnnouncementsView() in view-grades.js (principal composer+list), and AnnouncementBanner()
   // in view-dashboard.js (what teachers/students see).
-  announcements: [], // { id, message, createdAt }
+  announcements: [], // { id, message, createdAt, audience, targetGrade, targetSchoolClassId }
   newAnnouncementText: '',
+  newAnnouncementAudience: 'all', // 'all' | 'teachers' | 'students' | 'grade' | 'class'
+  newAnnouncementGrade: 1,          // used when audience === 'grade' (ročník 1-4)
+  newAnnouncementSchoolClassId: '', // used when audience === 'class' — a school_classes id
 };
 
 // --- Utility ---

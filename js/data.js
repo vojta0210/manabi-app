@@ -69,7 +69,12 @@ function mapGrade(g) {
   return { homeworkId: g.homework_id, studentId: g.student_id, value: g.value, comment: g.comment || '' };
 }
 function mapAnnouncement(a) {
-  return { id: a.id, principalId: a.principal_id, message: a.message, createdAt: a.created_at };
+  return {
+    id: a.id, principalId: a.principal_id, message: a.message, createdAt: a.created_at,
+    audience: a.audience || 'all',
+    targetGrade: a.target_grade ?? null,
+    targetSchoolClassId: a.target_school_class_id ?? null,
+  };
 }
 
 async function fetchAllData() {
@@ -126,9 +131,10 @@ async function fetchAllData() {
 }
 
 // Deliberately kept OUTSIDE the Promise.all above: `announcements` is a newer table (see
-// patch_grade_comments_announcements.sql) and a school that hasn't run that migration yet
-// should still get everything else in fetchAllData() working, not one missing table taking
-// the whole app down with a hard "Could not load data from the server" error.
+// patch_grade_comments_announcements.sql and patch_announcement_targeting.sql) and a school
+// that hasn't run those migrations yet should still get everything else in fetchAllData()
+// working, not one missing table taking the whole app down with a hard "Could not load
+// data from the server" error.
 async function fetchAnnouncements() {
   try {
     const { data, error } = await sb.from('announcements').select('*').order('created_at', { ascending: false });

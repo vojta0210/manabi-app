@@ -764,23 +764,77 @@ function exportClassGradesCSV(sc) {
 // ==============================================
 // ANNOUNCEMENTS (oznámení) — principal's composer + sent list. Reached via the
 // Sidebar "Announcements" nav item (view-dashboard.js, principal-only). What teachers and
-// students see is AnnouncementBanner() in view-dashboard.js.
+// students see is AnnouncementBanner() in view-dashboard.js — the recipient list below is
+// enforced server-side by RLS (see patch_announcement_targeting.sql), not by this file.
 // ==============================================
+
+// Human-readable label for who an already-sent announcement went to.
+function announcementAudienceLabel(a) {
+  if (a.audience === 'teachers') return 'All teachers';
+  if (a.audience === 'students') return 'All students';
+  if (a.audience === 'grade') return `Ročník ${a.targetGrade}`;
+  if (a.audience === 'class') {
+    const sc = state.schoolClasses.find(c => c.id === a.targetSchoolClassId);
+    return sc ? `Class ${sc.name}` : 'Class (deleted)';
+  }
+  return 'Everyone';
+}
+
 function AnnouncementsView() {
+  const audience = state.newAnnouncementAudience;
+  const audienceOptions = [
+    ['all', 'Everyone'],
+    ['teachers', 'All Teachers'],
+    ['students', 'All Students'],
+    ['grade', 'Ročník'],
+    ['class', 'Class (třída)'],
+  ];
   return el('div', { className: 'space-y-8 max-w-2xl' },
     el('div', {},
       el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2' }, 'New announcement'),
       el('textarea', {
         className: 'w-full border-2 border-gray-200 focus:border-black outline-none p-4 text-black bg-transparent font-light text-base transition resize-none',
         rows: 3,
-        placeholder: 'Message for the whole school…',
+        placeholder: 'Message…',
         value: state.newAnnouncementText,
         onInput: (e) => { state.newAnnouncementText = e.target.value; }
       }),
+      el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 mt-5' }, 'Send to'),
+      el('div', { className: 'flex flex-wrap gap-2' },
+        ...audienceOptions.map(([val, label]) =>
+          el('button', {
+            className: `px-4 py-2 border-2 text-xs font-bold uppercase tracking-wider transition ${audience === val ? 'bg-black text-white border-black' : 'bg-white text-black border-gray-200 hover:border-gray-400'}`,
+            onClick: () => { state.newAnnouncementAudience = val; render(); }
+          }, label)
+        )
+      ),
+      audience === 'grade'
+        ? el('div', { className: 'flex flex-wrap gap-2 mt-3' },
+          ...[1, 2, 3, 4].map(grade =>
+            el('button', {
+              className: `w-12 h-12 border-2 font-bold text-lg transition ${Number(state.newAnnouncementGrade) === grade ? 'bg-black text-white border-black' : 'bg-white text-black border-gray-200 hover:border-gray-400'}`,
+              onClick: () => { state.newAnnouncementGrade = grade; render(); }
+            }, String(grade))
+          )
+        )
+        : null,
+      audience === 'class'
+        ? el('select', {
+          className: 'mt-3 w-full max-w-xs p-3 border-b-2 border-gray-200 focus:border-black outline-none text-black bg-transparent font-light text-base transition',
+          onInput: (e) => { state.newAnnouncementSchoolClassId = e.target.value; }
+        },
+          el('option', { value: '' }, state.schoolClasses.length ? 'Select a class…' : 'No classes set up yet'),
+          ...state.schoolClasses.map(sc => {
+            const opt = el('option', { value: sc.id }, sc.name);
+            if (String(sc.id) === String(state.newAnnouncementSchoolClassId)) opt.selected = true;
+            return opt;
+          })
+        )
+        : null,
       el('button', {
-        className: 'mt-3 px-6 py-3 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition',
+        className: 'mt-5 px-6 py-3 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition',
         onClick: postAnnouncement
-      }, 'Send to School')
+      }, 'Send')
     ),
     el('div', {},
       el('h3', { className: 'text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4' }, 'Sent'),
@@ -790,7 +844,7 @@ function AnnouncementsView() {
           el('div', { className: 'flex items-start justify-between gap-4 p-4 border border-gray-100' },
             el('div', {},
               el('p', { className: 'text-sm text-black whitespace-pre-wrap' }, a.message),
-              el('p', { className: 'text-[10px] text-gray-400 mt-2 uppercase tracking-wider' }, new Date(a.createdAt).toLocaleString())
+              el('p', { className: 'text-[10px] text-gray-400 mt-2 uppercase tracking-wider' }, `${announcementAudienceLabel(a)} · ${new Date(a.createdAt).toLocaleString()}`)
             ),
             el('button', {
               className: 'text-gray-300 hover:text-red-500 transition flex-shrink-0',
