@@ -14,6 +14,13 @@ let state = {
   grades: [],          // { homeworkId, studentId, value }
   currentUser: null,
   authLoading: true,   // true until the initial session check finishes
+
+  // App-wide UI primitives (ui-core.js: showToast/showConfirm/runPending) — replace
+  // alert()/confirm() with styled, non-blocking overlays, and track in-flight button
+  // actions so a slow request shows "Saving…" instead of looking unresponsive.
+  toast: null,            // { message, kind: 'error'|'success' } | null
+  confirmDialog: null,    // { message, onConfirm, confirmLabel } | null
+  pendingActions: {},     // { [key]: true } — which runPending() keys are currently in flight
   loginMode: '',
   view: 'dashboard',
   loginName: '',
@@ -95,6 +102,7 @@ let state = {
   newAnnouncementGrade: 1,          // used when audience === 'grade' (ročník 1-4)
   newAnnouncementSchoolClassId: '', // used when audience === 'class' — a school_classes id
   newAnnouncementPickerOpen: false, // whether the "Send to" picker is expanded (defaults closed, sends to Everyone)
+  editingAnnouncementId: null, // set by editAnnouncement() — the composer above becomes "edit this sent announcement" instead of "compose a new one" until cancelled or saved
 
   // Per-recipient receipts for announcements — once a teacher/student pins or dismisses an
   // announcement from their dashboard banner, a row lands here so it stops showing up in

@@ -114,7 +114,10 @@ function CalendarAnnouncementModal() {
       a.shortDescription ? el('h3', { className: 'text-2xl font-light text-black uppercase tracking-wide mb-6' }, a.shortDescription) : null,
       el('p', { className: 'text-sm text-black whitespace-pre-wrap mb-6' }, a.message),
       el('p', { className: 'text-[10px] text-gray-400 uppercase tracking-wider mb-8' }, `Zpráva od: ${a.principalName || 'Principal'} · ${new Date(a.createdAt).toLocaleString()}`),
-      el('button', { className: 'w-full py-4 bg-black text-white font-bold uppercase tracking-widest hover:bg-gray-800 transition', onClick: close }, 'Close')
+      el('div', { className: 'flex gap-4' },
+        el('button', { className: 'flex-1 py-4 bg-black text-white font-bold uppercase tracking-widest hover:bg-gray-800 transition', onClick: close }, 'Close'),
+        PendingButton('unpinAnnouncement:' + a.id, 'Unpin from Calendar', 'Removing…', () => { unpinAnnouncement(a.id); close(); }, 'flex-1 py-4 bg-gray-100 text-black font-bold uppercase tracking-widest hover:bg-gray-200 transition')
+      )
     )
   );
 }
@@ -143,7 +146,7 @@ function SettingsView() {
         }),
         el('p', { className: 'text-xs text-gray-400 mt-2' }, 'Shown to the principal on your teacher profile.')
       ) : null,
-      el('button', { className: 'px-8 py-3 bg-black text-white hover:bg-gray-800 font-bold uppercase tracking-wider text-sm transition', onClick: saveProfile }, 'Save Changes'),
+      PendingButton('saveProfile', 'Save Changes', 'Saving…', saveProfile, 'px-8 py-3 bg-black text-white hover:bg-gray-800 font-bold uppercase tracking-wider text-sm transition'),
       el('div', { className: 'pt-8 border-t border-gray-100' },
         el('label', { className: 'block text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider' }, 'Password Recovery Phrase'),
         el('input', {
@@ -154,7 +157,7 @@ function SettingsView() {
           onInput: (e) => state.newRecoveryPhrase = e.target.value
         }),
         el('p', { className: 'text-xs text-gray-400 mt-2' }, "There's no real email on this account, so this phrase is the only way to reset your password if you forget it. Set one if you registered before this existed, or replace the one you have."),
-        el('button', { className: 'mt-4 px-8 py-3 bg-white text-black border-2 border-black hover:bg-gray-50 font-bold uppercase tracking-wider text-sm transition', onClick: updateRecoveryPhrase }, 'Save Recovery Phrase')
+        PendingButton('updateRecoveryPhrase', 'Save Recovery Phrase', 'Saving…', updateRecoveryPhrase, 'mt-4 px-8 py-3 bg-white text-black border-2 border-black hover:bg-gray-50 font-bold uppercase tracking-wider text-sm transition')
       )
     )
   );
@@ -198,7 +201,7 @@ function JoinModal() {
       el('div', { className: 'space-y-8' },
         el('input', { className: 'w-full p-3 border-b-2 border-gray-200 focus:border-black outline-none text-xl font-light text-black text-center tracking-widest', placeholder: 'CODE', onInput: (e) => state.joinCode = e.target.value }),
         el('div', { className: 'flex gap-4' },
-          el('button', { className: 'flex-1 py-4 bg-black text-white font-bold uppercase tracking-widest hover:bg-gray-800 transition', onClick: joinClassroom }, 'Join'),
+          PendingButton('joinClassroom', 'Join', 'Joining…', joinClassroom, 'flex-1 py-4 bg-black text-white font-bold uppercase tracking-widest hover:bg-gray-800 transition'),
           el('button', { className: 'flex-1 py-4 bg-gray-100 text-black font-bold uppercase tracking-widest hover:bg-gray-200 transition', onClick: () => { state.showJoinModal = false; render(); } }, 'Cancel')
         )
       )
@@ -213,7 +216,7 @@ function StudentEditModal() {
       el('div', { className: 'space-y-8' },
         el('input', { className: 'w-full p-3 border-b-2 border-gray-200 focus:border-black outline-none text-xl font-light text-black', value: state.profileForm.name, onInput: (e) => state.profileForm.name = e.target.value }),
         el('div', { className: 'flex gap-4' },
-          el('button', { className: 'flex-1 py-4 bg-black text-white font-bold uppercase tracking-widest', onClick: saveStudentByTeacher }, 'Save'),
+          PendingButton('saveStudentByTeacher', 'Save', 'Saving…', saveStudentByTeacher, 'flex-1 py-4 bg-black text-white font-bold uppercase tracking-widest'),
           el('button', { className: 'flex-1 py-4 bg-gray-100 text-black font-bold uppercase tracking-widest', onClick: () => { state.showStudentEditModal = false; render(); } }, 'Cancel')
         )
       )

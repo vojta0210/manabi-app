@@ -33,17 +33,18 @@ async function assignScheduleSlot(schoolClassId, dayOfWeek, period, classroomId)
     { school_class_id: schoolClassId, day_of_week: dayOfWeek, period, classroom_id: Number(classroomId) },
     { onConflict: 'school_class_id,day_of_week,period' }
   );
-  if (error) { alert('Could not save schedule slot: ' + error.message); return; }
+  if (error) { showToast('Could not save schedule slot: ' + error.message); return; }
   await fetchAllData();
   render();
 }
 
 // Clicking an already-filled cell removes it (with a confirm, since there's no undo).
-async function removeScheduleSlot(schoolClassId, dayOfWeek, period, label) {
-  if (!confirm(`Remove ${label} from this slot?`)) return;
-  const { error } = await sb.from('schedule_slots').delete()
-    .eq('school_class_id', schoolClassId).eq('day_of_week', dayOfWeek).eq('period', period);
-  if (error) { alert('Could not clear slot: ' + error.message); return; }
-  await fetchAllData();
-  render();
+function removeScheduleSlot(schoolClassId, dayOfWeek, period, label) {
+  showConfirm(`Remove ${label} from this slot?`, async () => {
+    const { error } = await sb.from('schedule_slots').delete()
+      .eq('school_class_id', schoolClassId).eq('day_of_week', dayOfWeek).eq('period', period);
+    if (error) { showToast('Could not clear slot: ' + error.message); return; }
+    await fetchAllData();
+    render();
+  });
 }

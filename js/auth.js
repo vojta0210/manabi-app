@@ -9,59 +9,63 @@
 // for a name, never a real email — emailFor() turns "name + role" into a stable synthetic
 // address so Supabase Auth (which needs an email) has something unique to key off of.
 async function login(role) {
-  if (!state.loginName) return alert('Name required.');
-  if (!state.loginPassword) return alert('Password required.');
-  const email = emailFor(state.loginName, role);
-  const { error } = await sb.auth.signInWithPassword({ email, password: state.loginPassword });
-  if (error) {
-    alert('Login failed — check the name, password and role.');
-    return;
-  }
-  state.loginName = '';
-  state.loginPassword = '';
-  await afterAuth();
+  if (!state.loginName) return showToast('Name required.');
+  if (!state.loginPassword) return showToast('Password required.');
+  await runPending('login', async () => {
+    const email = emailFor(state.loginName, role);
+    const { error } = await sb.auth.signInWithPassword({ email, password: state.loginPassword });
+    if (error) {
+      showToast('Login failed — check the name, password and role.');
+      return;
+    }
+    state.loginName = '';
+    state.loginPassword = '';
+    await afterAuth();
+  });
 }
 
 async function register(role) {
-  if (!state.registerName) return alert('Name required');
-  if (!state.registerPassword || state.registerPassword.length < 6) return alert('Password must be at least 6 characters');
-  if (!state.registerRecovery || state.registerRecovery.trim().length < 4) return alert('Recovery phrase must be at least 4 characters — it\'s the only way to reset your password later, since there\'s no real email on the account.');
-  if (role === 'student' && !state.registerSchoolClassId) return alert('Please select your class.');
-  const email = emailFor(state.registerName, role);
-  const { data, error } = await sb.auth.signUp({
-    email,
-    password: state.registerPassword,
-    options: { data: {
-      role,
-      display_name: state.registerName,
-      // Only meaningful for students — handle_new_user() in schema.sql reads this to set
-      // profiles.school_class_id at signup time.
-      school_class_id: role === 'student' ? String(state.registerSchoolClassId) : null,
-    } }
+  if (!state.registerName) return showToast('Name required');
+  if (!state.registerPassword || state.registerPassword.length < 6) return showToast('Password must be at least 6 characters');
+  if (!state.registerRecovery || state.registerRecovery.trim().length < 4) return showToast('Recovery phrase must be at least 4 characters — it\'s the only way to reset your password later, since there\'s no real email on the account.');
+  if (role === 'student' && !state.registerSchoolClassId) return showToast('Please select your class.');
+  await runPending('register', async () => {
+    const email = emailFor(state.registerName, role);
+    const { data, error } = await sb.auth.signUp({
+      email,
+      password: state.registerPassword,
+      options: { data: {
+        role,
+        display_name: state.registerName,
+        // Only meaningful for students — handle_new_user() in schema.sql reads this to set
+        // profiles.school_class_id at signup time.
+        school_class_id: role === 'student' ? String(state.registerSchoolClassId) : null,
+      } }
+    });
+    if (error) {
+      if ((error.message || '').toLowerCase().includes('already registered')) showToast('That name is already taken. Try logging in instead.');
+      else showToast('Registration failed: ' + error.message);
+      return;
+    }
+    // Supabase signs up a duplicate email "successfully" (to avoid leaking which emails
+    // exist) but marks it with an empty identities array instead of returning an error.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      showToast('That name is already taken. Try logging in instead.');
+      return;
+    }
+    // Store the recovery phrase (hashed server-side, see set_recovery_secret() in schema.sql)
+    // now while we still have a fresh session from signUp. Not fatal if it fails — the account
+    // still works, the person just won't have self-service password recovery until they set
+    // one from Settings.
+    const { error: recErr } = await sb.rpc('set_recovery_secret', { p_secret: state.registerRecovery });
+    if (recErr) console.error('Could not save recovery phrase:', recErr);
+    state.registerName = '';
+    state.registerPassword = '';
+    state.registerRecovery = '';
+    state.registerSchoolClassId = '';
+    state.loginMode = '';
+    await afterAuth();
   });
-  if (error) {
-    if ((error.message || '').toLowerCase().includes('already registered')) alert('That name is already taken. Try logging in instead.');
-    else alert('Registration failed: ' + error.message);
-    return;
-  }
-  // Supabase signs up a duplicate email "successfully" (to avoid leaking which emails
-  // exist) but marks it with an empty identities array instead of returning an error.
-  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-    alert('That name is already taken. Try logging in instead.');
-    return;
-  }
-  // Store the recovery phrase (hashed server-side, see set_recovery_secret() in schema.sql)
-  // now while we still have a fresh session from signUp. Not fatal if it fails — the account
-  // still works, the person just won't have self-service password recovery until they set
-  // one from Settings.
-  const { error: recErr } = await sb.rpc('set_recovery_secret', { p_secret: state.registerRecovery });
-  if (recErr) console.error('Could not save recovery phrase:', recErr);
-  state.registerName = '';
-  state.registerPassword = '';
-  state.registerRecovery = '';
-  state.registerSchoolClassId = '';
-  state.loginMode = '';
-  await afterAuth();
 }
 
 // Self-service password reset for the email-free login system — see ForgotPasswordForm()
@@ -69,19 +73,20 @@ async function register(role) {
 // pieces of this flow.
 async function resetPasswordWithRecovery(role) {
   const { name, recovery, newPassword } = state.forgotForm;
-  if (!name) return alert('Enter your name.');
-  if (!recovery) return alert('Enter your recovery phrase.');
-  if (!newPassword || newPassword.length < 6) return alert('New password must be at least 6 characters.');
-  const email = emailFor(name, role);
-  const { data, error } = await sb.rpc('reset_password_with_recovery', {
-    p_email: email, p_recovery: recovery, p_new_password: newPassword
+  if (!name) return showToast('Enter your name.');
+  if (!recovery) return showToast('Enter your recovery phrase.');
+  if (!newPassword || newPassword.length < 6) return showToast('New password must be at least 6 characters.');
+  await runPending('resetPassword', async () => {
+    const email = emailFor(name, role);
+    const { data, error } = await sb.rpc('reset_password_with_recovery', {
+      p_email: email, p_recovery: recovery, p_new_password: newPassword
+    });
+    if (error) { showToast('Could not reset password: ' + error.message); return; }
+    if (!data) { showToast('Name, role or recovery phrase did not match.'); return; }
+    showToast('Password changed — you can log in now.', 'success');
+    state.showForgotPassword = false;
+    state.forgotForm = { name: '', recovery: '', newPassword: '' };
   });
-  if (error) { alert('Could not reset password: ' + error.message); return; }
-  if (!data) { alert('Name, role or recovery phrase did not match.'); return; }
-  alert('Password changed — you can log in now.');
-  state.showForgotPassword = false;
-  state.forgotForm = { name: '', recovery: '', newPassword: '' };
-  render();
 }
 
 async function afterAuth() {

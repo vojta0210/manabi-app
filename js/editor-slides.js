@@ -48,7 +48,7 @@ function SlidesEditor(file, readonly = false) {
   }
 
   function removeSlide(idx) {
-    if (slides.length === 1) return alert("Can't delete the only slide.");
+    if (slides.length === 1) return showToast("Can't delete the only slide.");
     slides.splice(idx, 1);
     currentSlide = Math.min(currentSlide, slides.length - 1);
     state._slidesCurrentIdx = currentSlide;
@@ -153,7 +153,7 @@ function SlidesEditor(file, readonly = false) {
               saveSlides();
               render();
             } catch (err) {
-              alert('Could not insert image: ' + err.message);
+              showToast('Could not insert image: ' + err.message);
             }
             e.target.value = '';
           }

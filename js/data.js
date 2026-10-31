@@ -103,7 +103,7 @@ async function fetchAllData() {
     || assignmentsRes.error || filesRes.error || hwFilesRes.error || studentFilesRes.error || gradesRes.error || schoolClassesRes.error || scheduleRes.error;
   if (err) {
     console.error('fetchAllData failed:', err);
-    alert('Could not load data from the server: ' + err.message);
+    showToast('Could not load data from the server: ' + err.message);
     return;
   }
   state.schoolClasses = (schoolClassesRes.data || []).map(mapSchoolClass);

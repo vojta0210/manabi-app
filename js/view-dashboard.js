@@ -170,14 +170,8 @@ function AnnouncementBanner() {
               value: pinDateDraft,
               onInput: (e) => { state.announcementPinDateDrafts = { ...state.announcementPinDateDrafts, [a.id]: e.target.value }; render(); }
             }),
-            el('button', {
-              className: 'px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition',
-              onClick: () => pinAnnouncement(a.id, pinDateDraft)
-            }, 'Připnout do kalendáře'),
-            el('button', {
-              className: 'px-4 py-2 border-2 border-gray-300 text-gray-500 text-xs font-bold uppercase tracking-wider hover:border-black hover:text-black transition',
-              onClick: () => dismissAnnouncement(a.id)
-            }, 'Smazat')
+            PendingButton('pinAnnouncement:' + a.id, 'Připnout do kalendáře', 'Připínám…', () => pinAnnouncement(a.id, pinDateDraft), 'px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition'),
+            PendingButton('dismissAnnouncement:' + a.id, 'Smazat', 'Mažu…', () => dismissAnnouncement(a.id), 'px-4 py-2 border-2 border-gray-300 text-gray-500 text-xs font-bold uppercase tracking-wider hover:border-black hover:text-black transition')
           )
         ) : null
       );
@@ -296,10 +290,7 @@ function StudentFilesSection(studentFiles) {
                 openEditor({ id: sf.masterFileId, name: sf.name, type: sf.type, content: sf.content }, true, sf.id);
               }
             }, 'Open & Edit'),
-            !isSubmitted ? el('button', {
-              className: 'px-4 py-2 text-xs font-bold uppercase tracking-wider text-white bg-green-600 hover:bg-green-700 transition',
-              onClick: () => submitStudentFile(sf.id)
-            }, 'Submit') : null
+            !isSubmitted ? PendingButton('submitStudentFile:' + sf.id, 'Submit', 'Submitting…', () => submitStudentFile(sf.id), 'px-4 py-2 text-xs font-bold uppercase tracking-wider text-white bg-green-600 hover:bg-green-700 transition') : null
           )
         );
       })
@@ -526,7 +517,7 @@ function ClassroomModal() {
           )
         ),
         el('div', { className: 'flex gap-4' },
-          el('button', { className: 'flex-1 py-4 bg-black text-white font-bold uppercase tracking-widest hover:bg-gray-800 transition', onClick: saveClassroomModal }, isEditing ? 'Save' : 'Create'),
+          PendingButton('saveClassroomModal', isEditing ? 'Save' : 'Create', isEditing ? 'Saving…' : 'Creating…', saveClassroomModal, 'flex-1 py-4 bg-black text-white font-bold uppercase tracking-widest hover:bg-gray-800 transition'),
           el('button', { className: 'flex-1 py-4 bg-gray-100 text-black font-bold uppercase tracking-widest hover:bg-gray-200 transition', onClick: () => { state.showClassroomModal = false; render(); } }, 'Cancel')
         )
       )

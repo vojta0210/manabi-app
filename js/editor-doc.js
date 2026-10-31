@@ -50,10 +50,11 @@ function EditorPage() {
           onClick: async () => { await saveEditorFileNow(); }
         }, 'Save') : null,
         file.isStudentCopy && !submittedFile?.submittedAt && state.currentUser.role === 'student'
-          ? el('button', {
-            className: 'px-6 py-2 bg-green-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition',
-            onClick: async () => { await saveEditorFileNow(); await submitStudentFile(file.studentFileId); }
-          }, 'Submit') : null
+          ? PendingButton(
+              'submitStudentFile:' + file.studentFileId, 'Submit', 'Submitting…',
+              async () => { await saveEditorFileNow(); await submitStudentFile(file.studentFileId); },
+              'px-6 py-2 bg-green-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition'
+            ) : null
       )
     ),
     isReadonlyByStudent ? el('div', { className: 'bg-yellow-50 border-b border-yellow-200 px-6 py-2 text-xs font-bold text-yellow-700 uppercase tracking-wider' }, '⚠ This file has been submitted and is now read-only') : null,
@@ -199,7 +200,7 @@ function DocEditor(file, readonly = false) {
             const dataUrl = await readImageAsDataURL(file, 900);
             cmd('insertHTML', `<img src="${dataUrl}" style="max-width:100%;margin:8px 0;" />`);
           } catch (err) {
-            alert('Could not insert image: ' + err.message);
+            showToast('Could not insert image: ' + err.message);
           }
           e.target.value = '';
         }

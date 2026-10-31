@@ -188,7 +188,7 @@ function HomeworkCard(hw, isTeacher) {
                 if (myFile) {
                   state._editorReturnView = 'dashboard';
                   openEditor({ id: myFile.masterFileId, name: myFile.name, type: myFile.type, content: myFile.content }, true, myFile.id);
-                } else alert('No file assigned to you yet.');
+                } else showToast('No file assigned to you yet.');
               }
             }, 'Open File')
             : null
@@ -322,7 +322,7 @@ function CreateAssignmentPage() {
       ),
       el('div', { className: 'flex items-center gap-3' },
         el('p', { className: 'text-xs text-gray-400 hidden sm:block' }, 'Attached files will be copied to each student'),
-        el('button', { className: 'px-8 py-2.5 bg-black text-white text-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition', onClick: saveHomework }, state.editingHomeworkId ? 'Save Changes' : 'Assign')
+        PendingButton('saveHomework', state.editingHomeworkId ? 'Save Changes' : 'Assign', state.editingHomeworkId ? 'Saving…' : 'Assigning…', saveHomework, 'px-8 py-2.5 bg-black text-white text-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition')
       )
     ),
     el('div', { className: 'max-w-5xl mx-auto px-8 py-10 grid grid-cols-1 lg:grid-cols-3 gap-10' },

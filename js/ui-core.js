@@ -55,6 +55,91 @@ function ColorDot(color, size = 'w-2.5 h-2.5') {
   return el('span', { className: `inline-block rounded-full flex-shrink-0 mr-2 ${size}`, style: { backgroundColor: color || '#94a3b8' } });
 }
 
+// ==============================================
+// TOAST — replaces alert(). Every call site that used to say `alert('msg')` now says
+// `showToast('msg')` (still fine as the tail of a `return showToast(...)` early-return
+// guard, since this returns undefined too) and gets a bordered, non-blocking box instead of
+// a native browser dialog. Pass 'success' as the second argument for a positive message
+// (e.g. "Profile saved!") instead of the default error styling.
+// ==============================================
+let toastTimer = null;
+function showToast(message, kind = 'error') {
+  state.toast = { message, kind };
+  render();
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { state.toast = null; render(); }, 4000);
+}
+function dismissToast() {
+  clearTimeout(toastTimer);
+  state.toast = null;
+  render();
+}
+function ToastDisplay() {
+  if (!state.toast) return null;
+  const isSuccess = state.toast.kind === 'success';
+  return el('div', { className: `fixed bottom-6 right-6 z-[100] max-w-sm p-4 border-2 border-black shadow-2xl flex items-start gap-4 ${isSuccess ? 'bg-black text-white' : 'bg-white text-black'}` },
+    el('p', { className: 'text-sm font-bold flex-1 whitespace-pre-wrap' }, state.toast.message),
+    el('button', { className: `flex-shrink-0 font-bold ${isSuccess ? 'text-gray-400 hover:text-white' : 'text-gray-300 hover:text-black'} transition`, onClick: dismissToast }, '×')
+  );
+}
+
+// ==============================================
+// CONFIRM DIALOG — replaces confirm(). A call site that used to say
+// `if (!confirm('msg')) return; <rest>` now says `showConfirm('msg', () => { <rest> })`.
+// Same overlay pattern as ClassroomModal()/CalendarAnnouncementModal().
+// ==============================================
+function showConfirm(message, onConfirm, confirmLabel = 'Confirm') {
+  state.confirmDialog = { message, onConfirm, confirmLabel };
+  render();
+}
+function closeConfirm() { state.confirmDialog = null; render(); }
+function ConfirmDialogModal() {
+  if (!state.confirmDialog) return null;
+  const { message, onConfirm, confirmLabel } = state.confirmDialog;
+  return el('div', { className: 'fixed inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-[100] p-4', onClick: closeConfirm },
+    el('div', { className: 'w-full max-w-sm p-10 bg-white shadow-2xl border border-gray-100', onClick: (e) => e.stopPropagation() },
+      el('p', { className: 'text-base text-black font-light mb-8 whitespace-pre-wrap' }, message),
+      el('div', { className: 'flex gap-4' },
+        el('button', { className: 'flex-1 py-3 bg-black text-white font-bold uppercase tracking-widest text-xs hover:bg-gray-800 transition', onClick: () => { closeConfirm(); onConfirm(); } }, confirmLabel),
+        el('button', { className: 'flex-1 py-3 bg-gray-100 text-black font-bold uppercase tracking-widest text-xs hover:bg-gray-200 transition', onClick: closeConfirm }, 'Cancel')
+      )
+    )
+  );
+}
+
+// ==============================================
+// PENDING ACTIONS — tracks which async button handlers are currently in flight so a button
+// can show "Saving…"/be disabled instead of sitting there looking unresponsive, and so a
+// second click while the first request hasn't come back yet is ignored rather than firing a
+// duplicate request (e.g. double-posting an announcement on a slow connection).
+// Usage: onClick: () => runPending('postAnnouncement', postAnnouncement), and the button's
+// label/disabled attrs check isPending('postAnnouncement').
+// ==============================================
+async function runPending(key, fn) {
+  if (state.pendingActions[key]) return;
+  state.pendingActions[key] = true;
+  render();
+  try {
+    await fn();
+  } finally {
+    state.pendingActions[key] = false;
+    render();
+  }
+}
+function isPending(key) { return !!state.pendingActions[key]; }
+
+// A <button> that shows `pendingLabel` and disables itself while its runPending() key is in
+// flight, so a Save/Send/Create/Submit button never just sits there looking unresponsive
+// (or clickable a second time) on a slow connection. `className` is whatever that button
+// would normally have; the disabled-looking opacity is added on top of it automatically.
+function PendingButton(key, label, pendingLabel, onClick, className) {
+  const pending = isPending(key);
+  return el('button', {
+    className: `${className} ${pending ? 'opacity-50 cursor-not-allowed' : ''}`,
+    disabled: pending,
+    onClick
+  }, pending ? pendingLabel : label);
+}
 
 // ==============================================
 // RENDER
@@ -64,9 +149,19 @@ function App() {
   const root = document.getElementById('root');
   root.innerHTML = '';
   if (state.authLoading) { root.appendChild(LoadingScreen()); return; }
-  if (!state.currentUser) { root.appendChild(AuthScreen()); return; }
-  if (state.view === 'editor') { root.appendChild(EditorPage()); return; }
+  if (!state.currentUser) { root.appendChild(AuthScreen()); appendOverlays(root); return; }
+  if (state.view === 'editor') { root.appendChild(EditorPage()); appendOverlays(root); return; }
   root.appendChild(DashboardLayout());
+  appendOverlays(root);
+}
+
+// Toast + confirm dialog float above every screen (auth, editor, dashboard) — appended once
+// here rather than duplicated into each top-level view.
+function appendOverlays(root) {
+  const toast = ToastDisplay();
+  if (toast) root.appendChild(toast);
+  const confirmModal = ConfirmDialogModal();
+  if (confirmModal) root.appendChild(confirmModal);
 }
 
 function LoadingScreen() {

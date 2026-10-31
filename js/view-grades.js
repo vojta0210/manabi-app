@@ -45,7 +45,7 @@ async function saveGrade(hwId, studentId, value) {
     return deleteGrade(hwId, studentId);
   }
   const { error } = await sb.from('grades').upsert({ homework_id: hwId, student_id: studentId, value: String(value) });
-  if (error) { alert('Could not save grade: ' + error.message); return; }
+  if (error) { showToast('Could not save grade: ' + error.message); return; }
   const idx = state.grades.findIndex(g => g.homeworkId === hwId && g.studentId === studentId);
   if (idx !== -1) state.grades[idx].value = String(value);
   else state.grades.push({ homeworkId: hwId, studentId, value: String(value) });
@@ -54,7 +54,7 @@ async function saveGrade(hwId, studentId, value) {
 
 async function deleteGrade(hwId, studentId) {
   const { error } = await sb.from('grades').delete().eq('homework_id', hwId).eq('student_id', studentId);
-  if (error) { alert('Could not remove grade: ' + error.message); return; }
+  if (error) { showToast('Could not remove grade: ' + error.message); return; }
   state.grades = state.grades.filter(g => !(g.homeworkId === hwId && g.studentId === studentId));
   render();
 }
@@ -66,7 +66,7 @@ async function deleteGrade(hwId, studentId) {
 // call independently of saveGrade().
 async function saveGradeComment(hwId, studentId, comment) {
   const { error } = await sb.from('grades').upsert({ homework_id: hwId, student_id: studentId, comment: comment || null });
-  if (error) { alert('Could not save comment: ' + error.message); return; }
+  if (error) { showToast('Could not save comment: ' + error.message); return; }
   const idx = state.grades.findIndex(g => g.homeworkId === hwId && g.studentId === studentId);
   if (idx !== -1) state.grades[idx].comment = comment;
   else state.grades.push({ homeworkId: hwId, studentId, value: null, comment });
@@ -797,8 +797,13 @@ function announcementDraftAudienceLabel() {
 function AnnouncementsView() {
   const audience = state.newAnnouncementAudience;
   const pickerOpen = state.newAnnouncementPickerOpen;
+  const isEditing = !!state.editingAnnouncementId;
   return el('div', { className: 'space-y-8 max-w-2xl' },
     el('div', {},
+      isEditing ? el('div', { className: 'flex items-center justify-between mb-4 p-3 bg-gray-50 border border-gray-200' },
+        el('p', { className: 'text-xs font-bold text-black uppercase tracking-wider' }, 'Editing a sent announcement'),
+        el('button', { className: 'text-[11px] font-bold text-gray-400 hover:text-black uppercase tracking-wider underline underline-offset-2', onClick: cancelEditAnnouncement }, 'Cancel')
+      ) : null,
       el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2' }, 'Popis zprávy'),
       el('input', {
         className: 'w-full border-b-2 border-gray-200 focus:border-black outline-none py-2 text-black bg-transparent font-light text-base transition',
@@ -867,27 +872,31 @@ function AnnouncementsView() {
             }, 'Done')
           ),
 
-      el('button', {
-        className: 'mt-5 px-6 py-3 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition',
-        onClick: postAnnouncement
-      }, 'Send')
+      PendingButton('postAnnouncement', isEditing ? 'Update' : 'Send', isEditing ? 'Updating…' : 'Sending…', postAnnouncement, 'mt-5 px-6 py-3 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition')
     ),
     el('div', {},
       el('h3', { className: 'text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4' }, 'Sent'),
       state.announcements.length === 0
         ? el('p', { className: 'text-sm text-gray-400' }, 'No announcements yet.')
         : el('div', { className: 'space-y-3' }, ...state.announcements.map(a =>
-          el('div', { className: 'flex items-start justify-between gap-4 p-4 border border-gray-100' },
+          el('div', { className: `flex items-start justify-between gap-4 p-4 border ${state.editingAnnouncementId === a.id ? 'border-black' : 'border-gray-100'}` },
             el('div', {},
               a.shortDescription ? el('p', { className: 'text-xs font-bold text-black uppercase tracking-wider mb-1' }, a.shortDescription) : null,
               el('p', { className: 'text-sm text-black whitespace-pre-wrap' }, a.message),
               el('p', { className: 'text-[10px] text-gray-400 mt-2 uppercase tracking-wider' }, `${announcementAudienceLabel(a)} · ${new Date(a.createdAt).toLocaleString()}`)
             ),
-            el('button', {
-              className: 'text-gray-300 hover:text-red-500 transition flex-shrink-0',
-              title: 'Delete',
-              onClick: () => deleteAnnouncement(a.id)
-            }, Icon('trash', 'w-4 h-4'))
+            el('div', { className: 'flex items-center gap-3 flex-shrink-0' },
+              el('button', {
+                className: 'text-gray-300 hover:text-black transition',
+                title: 'Edit',
+                onClick: () => editAnnouncement(a)
+              }, Icon('edit', 'w-4 h-4')),
+              el('button', {
+                className: 'text-gray-300 hover:text-red-500 transition',
+                title: 'Delete',
+                onClick: () => deleteAnnouncement(a.id)
+              }, Icon('trash', 'w-4 h-4'))
+            )
           )
         ))
     )

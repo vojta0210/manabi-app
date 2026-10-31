@@ -79,10 +79,13 @@ function AuthScreen() {
             })
           )
         ) : null,
-        el('button', {
-          className: 'w-full p-4 rounded-none font-bold text-lg bg-black text-white hover:bg-gray-800 border-2 border-black transition',
-          onClick: () => isReg ? register(role) : login(role)
-        }, isReg ? 'Create Account' : 'Login'),
+        PendingButton(
+          isReg ? 'register' : 'login',
+          isReg ? 'Create Account' : 'Login',
+          isReg ? 'Creating…' : 'Logging in…',
+          () => isReg ? register(role) : login(role),
+          'w-full p-4 rounded-none font-bold text-lg bg-black text-white hover:bg-gray-800 border-2 border-black transition'
+        ),
         !isReg ? el('button', {
           className: 'w-full text-gray-500 hover:text-black text-xs font-bold py-1 underline',
           onClick: () => { state.showForgotPassword = true; state.forgotForm = { name: state.loginName, recovery: '', newPassword: '' }; render(); }
@@ -144,10 +147,13 @@ function PrincipalCorner() {
       value: state.registerRecovery,
       onInput: (e) => { state.registerRecovery = e.target.value; }
     }) : null,
-    el('button', {
-      className: 'w-full p-2 text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-gray-800 transition',
-      onClick: principalCornerSubmit
-    }, isReg ? 'Register' : 'Login'),
+    PendingButton(
+      isReg ? 'register' : 'login',
+      isReg ? 'Register' : 'Login',
+      isReg ? 'Registering…' : 'Logging in…',
+      principalCornerSubmit,
+      'w-full p-2 text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-gray-800 transition'
+    ),
     el('button', {
       className: 'w-full text-center text-[10px] text-gray-300 hover:text-black underline',
       onClick: () => { state.principalCornerReg = !state.principalCornerReg; render(); }
@@ -203,10 +209,7 @@ function ForgotPasswordForm(role) {
         onKeyDown: (e) => { if (e.key === 'Enter') resetPasswordWithRecovery(role); }
       })
     ),
-    el('button', {
-      className: 'w-full p-4 rounded-none font-bold text-lg bg-black text-white hover:bg-gray-800 border-2 border-black transition',
-      onClick: () => resetPasswordWithRecovery(role)
-    }, 'Reset Password'),
+    PendingButton('resetPassword', 'Reset Password', 'Resetting…', () => resetPasswordWithRecovery(role), 'w-full p-4 rounded-none font-bold text-lg bg-black text-white hover:bg-gray-800 border-2 border-black transition'),
     el('button', {
       className: 'w-full text-gray-500 hover:text-black text-sm font-bold py-2 underline',
       onClick: () => { state.showForgotPassword = false; render(); }
