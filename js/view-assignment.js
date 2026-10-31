@@ -352,6 +352,20 @@ function CreateAssignmentPage() {
             el('input', { type: 'number', className: 'w-full border-b-2 border-gray-200 focus:border-black outline-none py-2 text-black bg-transparent font-light text-base transition', placeholder: '100', value: state.newHomework.points, onInput: (e) => { state.newHomework.points = e.target.value; } })
           )
         ),
+        // Weekly repeat — only meaningful for a brand-new assignment with a due date; each
+        // extra week becomes its own independent assignment (saveHomework() in actions.js).
+        !state.editingHomeworkId ? el('div', {},
+          el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2' }, 'Repeat weekly'),
+          el('div', { className: 'flex items-center gap-3' },
+            el('input', {
+              type: 'number', min: 1, max: 52,
+              className: 'w-24 border-b-2 border-gray-200 focus:border-black outline-none py-2 text-black bg-transparent font-light text-base transition',
+              value: state.newHomework.repeatWeeks,
+              onInput: (e) => { state.newHomework.repeatWeeks = e.target.value; }
+            }),
+            el('span', { className: 'text-sm text-gray-400' }, Number(state.newHomework.repeatWeeks) > 1 ? `weeks in a row (needs a due date above)` : 'week (no repeat)')
+          )
+        ) : null,
         // Files
         el('div', {},
           el('div', { className: 'flex items-center justify-between mb-4' },

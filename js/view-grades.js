@@ -59,6 +59,20 @@ async function deleteGrade(hwId, studentId) {
   render();
 }
 
+// Short written feedback alongside (or instead of) a numeric grade — see
+// patch_grade_comments_announcements.sql for the `grades.comment` column. Upserting only
+// { homework_id, student_id, comment } leaves an existing `value` untouched (Postgres
+// ON CONFLICT DO UPDATE only touches the columns actually submitted), so this is safe to
+// call independently of saveGrade().
+async function saveGradeComment(hwId, studentId, comment) {
+  const { error } = await sb.from('grades').upsert({ homework_id: hwId, student_id: studentId, comment: comment || null });
+  if (error) { alert('Could not save comment: ' + error.message); return; }
+  const idx = state.grades.findIndex(g => g.homeworkId === hwId && g.studentId === studentId);
+  if (idx !== -1) state.grades[idx].comment = comment;
+  else state.grades.push({ homeworkId: hwId, studentId, value: null, comment });
+  render();
+}
+
 // ==============================================
 // GRADES VIEW
 // ==============================================
@@ -145,6 +159,8 @@ function StudentGradesView() {
           ...entries.map(({ hw, earnedPoints, maxPoints, pct }) => {
             const g = pct !== null ? getLetterGrade(pct) : null;
             const isGraded = earnedPoints !== null;
+            const gradeRow = state.grades.find(gr => gr.homeworkId === hw.id && gr.studentId === state.currentUser.id);
+            const comment = gradeRow && gradeRow.comment;
             return el('div', { className: 'flex items-center gap-4 py-3 px-4 border border-gray-100 hover:border-gray-300 transition group' },
               // Letter badge
               el('div', { className: `w-10 h-10 flex-shrink-0 flex items-center justify-center text-sm font-black border-2 ${g ? `${g.color} ${g.border} ${g.bg}` : 'text-gray-300 border-gray-100 bg-gray-50'}` },
@@ -156,7 +172,8 @@ function StudentGradesView() {
                 el('div', { className: 'flex items-center gap-2 mt-1' },
                   el('div', { className: 'flex-1' }, isGraded ? GradeBar(pct) : el('div', { className: 'w-full bg-gray-100 h-2 rounded-full' })),
                   el('span', { className: 'text-xs text-gray-400 flex-shrink-0 w-8 text-right' }, isGraded ? pct + '%' : '—')
-                )
+                ),
+                comment ? el('p', { className: 'text-xs text-gray-500 italic mt-1.5' }, `"${comment}"`) : null
               ),
               // Points
               el('div', { className: 'text-right flex-shrink-0' },
@@ -352,7 +369,7 @@ function HomeroomView() {
   );
 }
 
-function HomeroomClassPanel(sc) {
+function HomeroomClassPanel(sc, showExport = false) {
   let roster = state.students.filter(s => s.schoolClassId === sc.id);
   const sortBy = state.homeroomSortBy || 'name';
   if (sortBy === 'grade') {
@@ -380,7 +397,19 @@ function HomeroomClassPanel(sc) {
     el('div', { className: 'flex items-center justify-between border-b-2 border-black pb-3' },
       el('h3', { className: 'text-lg font-bold text-black' }, sc.name),
       el('div', { className: 'flex items-center gap-4' },
-        el('div', { className: 'flex gap-2' }, SortButton('name', 'A–Z'), SortButton('grade', 'By Grade')),
+        showExport ? el('div', { className: 'flex gap-2 print:hidden' },
+          el('button', {
+            className: 'px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border-2 border-gray-200 text-gray-500 hover:border-black hover:text-black transition',
+            title: 'Download as a CSV file — opens directly in Excel',
+            onClick: () => exportClassGradesCSV(sc)
+          }, 'Export CSV'),
+          el('button', {
+            className: 'px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border-2 border-gray-200 text-gray-500 hover:border-black hover:text-black transition',
+            title: 'Opens your browser\'s print dialog — choose "Save as PDF" there',
+            onClick: () => window.print()
+          }, 'Print / PDF')
+        ) : null,
+        el('div', { className: 'flex gap-2 print:hidden' }, SortButton('name', 'A–Z'), SortButton('grade', 'By Grade')),
         el('span', { className: 'text-xs font-bold text-gray-400 uppercase tracking-widest' }, `${roster.length} student(s)`)
       )
     ),
@@ -502,7 +531,9 @@ function TeacherStudentGradeDetail(studentId, clsHomework, myClasses) {
       ...gradeData.map(({ hw, earnedPoints, maxPoints, pct }) => {
         const g = pct !== null ? getLetterGrade(pct) : null;
         const cls = myClasses.find(c => c.id === hw.classroomId);
-        return el('div', { className: 'grid grid-cols-12 gap-3 items-center px-3 py-3 border border-gray-100 hover:border-gray-300 transition' },
+        const gradeRow = state.grades.find(gr => gr.homeworkId === hw.id && gr.studentId === studentId);
+        return el('div', { className: 'border border-gray-100 hover:border-gray-300 transition' },
+        el('div', { className: 'grid grid-cols-12 gap-3 items-center px-3 py-3' },
           // Assignment name
           el('div', { className: 'col-span-5' },
             el('p', { className: 'text-sm font-bold text-black truncate' }, hw.name),
@@ -544,6 +575,16 @@ function TeacherStudentGradeDetail(studentId, clsHomework, myClasses) {
               }, Icon('trash', 'w-4 h-4'))
               : null
           )
+        ),
+        // Feedback comment — shown to the student alongside this grade (see saveGradeComment()).
+        el('div', { className: 'px-3 pb-3' },
+          el('input', {
+            className: 'w-full text-xs border-b border-gray-200 focus:border-black outline-none py-1.5 text-gray-600 bg-transparent transition',
+            placeholder: 'Add feedback for the student…',
+            value: (gradeRow && gradeRow.comment) || '',
+            onChange: (e) => { saveGradeComment(hw.id, studentId, e.target.value); }
+          })
+        )
         );
       })
     )
@@ -688,6 +729,76 @@ function PrincipalClassView() {
         render();
       }
     }, Icon('back', 'w-4 h-4'), cameFromTeacher ? 'Back to Teacher' : 'All Classes'),
-    HomeroomClassPanel(sc)
+    HomeroomClassPanel(sc, true)
+  );
+}
+
+// Builds a roster + overall-grade CSV for one school class and triggers a browser download —
+// no server round-trip, no library. A leading UTF-8 BOM is included so Excel (which otherwise
+// guesses Windows-1250 for a bare .csv) renders Czech diacritics correctly on open.
+function exportClassGradesCSV(sc) {
+  const roster = state.students.filter(s => s.schoolClassId === sc.id).sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+  const rows = [['Student', 'Overall %', 'Overall Grade', 'Assignments Graded']];
+  roster.forEach(student => {
+    const gradeData = getHomeroomGradeData(student.id);
+    const pct = calcOverall(gradeData);
+    const g = pct !== null ? getLetterGrade(pct) : null;
+    rows.push([student.name, pct !== null ? pct : '', g ? g.letter : '', gradeData.filter(d => d.earnedPoints !== null).length]);
+  });
+  const esc = (cell) => {
+    const s = String(cell ?? '');
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const csv = rows.map(r => r.map(esc).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${sc.name.replace(/[^a-zA-Z0-9.]+/g, '_')}_znamky.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ==============================================
+// ANNOUNCEMENTS (oznámení) — principal's composer + sent list. Reached via the
+// Sidebar "Announcements" nav item (view-dashboard.js, principal-only). What teachers and
+// students see is AnnouncementBanner() in view-dashboard.js.
+// ==============================================
+function AnnouncementsView() {
+  return el('div', { className: 'space-y-8 max-w-2xl' },
+    el('div', {},
+      el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2' }, 'New announcement'),
+      el('textarea', {
+        className: 'w-full border-2 border-gray-200 focus:border-black outline-none p-4 text-black bg-transparent font-light text-base transition resize-none',
+        rows: 3,
+        placeholder: 'Message for the whole school…',
+        value: state.newAnnouncementText,
+        onInput: (e) => { state.newAnnouncementText = e.target.value; }
+      }),
+      el('button', {
+        className: 'mt-3 px-6 py-3 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition',
+        onClick: postAnnouncement
+      }, 'Send to School')
+    ),
+    el('div', {},
+      el('h3', { className: 'text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4' }, 'Sent'),
+      state.announcements.length === 0
+        ? el('p', { className: 'text-sm text-gray-400' }, 'No announcements yet.')
+        : el('div', { className: 'space-y-3' }, ...state.announcements.map(a =>
+          el('div', { className: 'flex items-start justify-between gap-4 p-4 border border-gray-100' },
+            el('div', {},
+              el('p', { className: 'text-sm text-black whitespace-pre-wrap' }, a.message),
+              el('p', { className: 'text-[10px] text-gray-400 mt-2 uppercase tracking-wider' }, new Date(a.createdAt).toLocaleString())
+            ),
+            el('button', {
+              className: 'text-gray-300 hover:text-red-500 transition flex-shrink-0',
+              title: 'Delete',
+              onClick: () => deleteAnnouncement(a.id)
+            }, Icon('trash', 'w-4 h-4'))
+          )
+        ))
+    )
   );
 }

@@ -78,3 +78,11 @@ input:focus { background: rgba(59, 130, 246, 0.05); }
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+/* Print — used by the principal's "Print / PDF" button (window.print(), then "Save as PDF"
+   in the browser's print dialog). Hides the sidebar/nav chrome so only the class roster
+   actually prints. `print:hidden` matches Tailwind's print variant convention even though
+   this project loads Tailwind from the CDN build (no custom config to add it to). */
+@media print {
+  aside, .print\:hidden { display: none !important; }
+  main { padding: 0 !important; }
+}

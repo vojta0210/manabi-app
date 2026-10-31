@@ -17,6 +17,7 @@ function DashboardLayout() {
   else if (state.view === 'principal-class') content = PrincipalClassView();
   else if (state.view === 'principal-teacher') content = PrincipalTeacherView();
   else if (state.view === 'schedule') content = ScheduleView();
+  else if (state.view === 'announcements') content = AnnouncementsView();
   else content = state.currentUser.role === 'teacher' ? TeacherDashboard()
     : state.currentUser.role === 'principal' ? PrincipalOverview()
     : StudentDashboard();
@@ -43,9 +44,9 @@ function Sidebar() {
       ),
       el('nav', { className: 'flex flex-col mt-6' },
         isPrincipal
-          ? [NavButton('Teachers', 'dashboard', 'dashboard'), NavButton('Schedule', 'schedule', 'calendar'), NavButton('Settings', 'settings', 'settings')]
+          ? [NavButton('Teachers', 'dashboard', 'dashboard'), NavButton('Schedule', 'schedule', 'calendar'), NavButton('Announcements', 'announcements', 'megaphone'), NavButton('Settings', 'settings', 'settings')]
           : [
-              NavButton('Dashboard', 'dashboard', 'dashboard'),
+              NavButton('Dashboard', 'dashboard', 'dashboard', !isTeacher ? getStudentUrgentHomework().length : 0),
               NavButton('Calendar', 'calendar', 'calendar'),
               NavButton('Schedule', 'schedule', 'dashboard'),
               isTeacher ? NavButton('Students', 'students', 'students') : null,
@@ -68,7 +69,7 @@ function Sidebar() {
   );
 }
 
-function NavButton(label, viewName, iconType) {
+function NavButton(label, viewName, iconType, badge = 0) {
   const isActive = state.view === viewName
     || (viewName === 'dashboard' && (state.view === 'create-assignment' || state.view === 'submissions' || state.view === 'classroom-assignments' || state.view === 'principal-class' || state.view === 'principal-teacher'))
     || (viewName === 'grades' && state.view === 'grades');
@@ -78,11 +79,15 @@ function NavButton(label, viewName, iconType) {
       if (viewName === 'settings') loadProfileForEdit();
       else { state.view = viewName; render(); }
     }
-  }, Icon(iconType, `w-5 h-5 ${isActive ? 'text-white' : 'text-gray-400'}`), label);
+  },
+    Icon(iconType, `w-5 h-5 ${isActive ? 'text-white' : 'text-gray-400'}`),
+    el('span', { className: 'flex-1' }, label),
+    badge > 0 ? el('span', { className: `text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-white text-black' : 'bg-red-500 text-white'}` }, String(badge)) : null
+  );
 }
 
 function Header() {
-  const titles = { dashboard: 'Dashboard', calendar: 'Calendar', settings: 'Settings', students: 'Students', submissions: 'Submissions', 'classroom-assignments': 'Assignments', homeroom: 'Homeroom', grades: 'Grades', 'principal-class': 'Class Overview', 'principal-teacher': 'Teacher', schedule: 'Schedule' };
+  const titles = { dashboard: 'Dashboard', calendar: 'Calendar', settings: 'Settings', students: 'Students', submissions: 'Submissions', 'classroom-assignments': 'Assignments', homeroom: 'Homeroom', grades: 'Grades', 'principal-class': 'Class Overview', 'principal-teacher': 'Teacher', schedule: 'Schedule', announcements: 'Announcements' };
   const isPrincipal = state.currentUser.role === 'principal';
   const title = (isPrincipal && state.view === 'dashboard') ? 'Teachers' : (titles[state.view] || 'Dashboard');
   const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -101,12 +106,48 @@ function Header() {
   );
 }
 
+// Overdue or due-today assignments the current student hasn't submitted yet — backs both the
+// red badge on the "Dashboard" nav button (Sidebar) and the warning banner on StudentDashboard.
+// Deliberately student-only: a teacher's "urgent" is about grading, not due dates, and that's
+// a different kind of count (SubmissionsView already shows it per-assignment).
+function getStudentUrgentHomework() {
+  if (!state.currentUser || state.currentUser.role !== 'student') return [];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const myClassIds = state.currentUser.classroomIds || [];
+  return state.homework.filter(h => {
+    if (!myClassIds.includes(h.classroomId)) return false;
+    if (h.assignedStudentIds !== 'all' && !(Array.isArray(h.assignedStudentIds) && h.assignedStudentIds.includes(state.currentUser.id))) return false;
+    if (!h.date) return false;
+    const due = new Date(h.date); due.setHours(0, 0, 0, 0);
+    if (due > today) return false;
+    const sf = state.studentFiles.find(x => x.homeworkId === h.id && x.studentId === state.currentUser.id);
+    return !(sf && sf.submittedAt);
+  });
+}
+
+// Latest school-wide announcements (see actions.js postAnnouncement/AnnouncementsView in
+// view-grades.js) — shown at the top of the teacher/student dashboard, newest 3 first.
+function AnnouncementBanner() {
+  if (!state.announcements || state.announcements.length === 0) return null;
+  const recent = state.announcements.slice(0, 3);
+  return el('div', { className: 'space-y-2 mb-2' },
+    ...recent.map(a => el('div', { className: 'flex items-start gap-3 p-4 border-2 border-black bg-gray-50' },
+      el('span', { className: 'text-lg flex-shrink-0' }, '📣'),
+      el('div', { className: 'flex-1 min-w-0' },
+        el('p', { className: 'text-sm font-bold text-black whitespace-pre-wrap' }, a.message),
+        el('p', { className: 'text-[10px] text-gray-400 mt-1 uppercase tracking-wider' }, new Date(a.createdAt).toLocaleString())
+      )
+    ))
+  );
+}
+
 // ── Teacher Dashboard ──
 function TeacherDashboard() {
   const myClasses = state.classrooms.filter(c => c.teacherId === state.currentUser.id);
   const allHomework = state.homework.filter(h => h.teacherId === state.currentUser.id);
 
   return el('div', { className: 'space-y-10' },
+    AnnouncementBanner(),
     el('div', { className: 'flex flex-wrap gap-12 mb-4' },
       StatCard('ACTIVE CLASSROOMS', myClasses.length),
       StatCard('TOTAL ASSIGNMENTS', allHomework.length)
@@ -138,8 +179,18 @@ function StudentDashboard() {
   // "My Assigned Files" only needs to show files still waiting on the student — once
   // submitted, it's done and doesn't need to keep cluttering the dashboard.
   const pendingStudentFiles = myStudentFiles.filter(sf => !sf.submittedAt);
+  const urgent = getStudentUrgentHomework();
+  const overdueCount = urgent.filter(h => h.date < new Date().toISOString().slice(0, 10)).length;
+  const dueTodayCount = urgent.length - overdueCount;
 
   return el('div', { className: 'space-y-10' },
+    AnnouncementBanner(),
+    urgent.length > 0 ? el('div', { className: 'flex items-center gap-3 p-4 border-2 border-red-500 bg-red-50' },
+      el('span', { className: 'text-xl flex-shrink-0' }, '⚠️'),
+      el('p', { className: 'text-sm font-bold text-red-700' },
+        [overdueCount > 0 ? `${overdueCount} ${overdueCount === 1 ? 'assignment' : 'assignments'} overdue` : null, dueTodayCount > 0 ? `${dueTodayCount} due today` : null].filter(Boolean).join(' · ') + ' — not yet submitted.'
+      )
+    ) : null,
     el('div', { className: 'flex flex-wrap gap-12 mb-4' },
       StatCard('JOINED CLASSES', myClassrooms.length),
       StatCard('MY ASSIGNMENTS', allHomework.length),

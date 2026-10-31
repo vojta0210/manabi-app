@@ -99,15 +99,15 @@ function openCreateAssignment(hw = null, presetClassroomId = null) {
   state.view = 'create-assignment';
   state.editingHomeworkId = hw ? hw.id : null;
   state.newHomework = hw
-    ? { name: hw.name, description: hw.description || '', points: hw.points || '', date: hw.date, classroomId: hw.classroomId }
-    : { name: '', description: '', points: '', date: '', classroomId: presetClassroomId || '' };
+    ? { name: hw.name, description: hw.description || '', points: hw.points || '', date: hw.date, classroomId: hw.classroomId, repeatWeeks: 1 }
+    : { name: '', description: '', points: '', date: '', classroomId: presetClassroomId || '', repeatWeeks: 1 };
   state.assignedStudentIds = hw ? (hw.assignedStudentIds === 'all' ? 'all' : [...(hw.assignedStudentIds || [])]) : [];
   state.attachedFileIds = hw ? [...(hw.attachedFileIds || [])] : [];
   render();
 }
 
 async function saveHomework() {
-  const { name, description, points, date, classroomId } = state.newHomework;
+  const { name, description, points, date, classroomId, repeatWeeks } = state.newHomework;
   if (!name || !classroomId) return alert('Name and classroom are required');
   const assigned = state.assignedStudentIds === 'all' || state.assignedStudentIds.length === 0
     ? 'all' : state.assignedStudentIds;
@@ -121,8 +121,9 @@ async function saveHomework() {
     assigned_all: assigned === 'all',
   };
 
+  const isNew = !state.editingHomeworkId;
   let hwId;
-  if (state.editingHomeworkId) {
+  if (!isNew) {
     hwId = state.editingHomeworkId;
     const { error } = await sb.from('homework').update(row).eq('id', hwId);
     if (error) return alert('Could not save assignment: ' + error.message);
@@ -144,10 +145,34 @@ async function saveHomework() {
     await createStudentFileCopies(hwId, state.attachedFileIds, assigned, classroomId);
   }
 
+  // Weekly repeats ("every Monday vocab") — only for a brand-new assignment with a due date
+  // and more than one occurrence requested. Each extra week is its own independent homework
+  // row (its own id, own submissions/grades), due 7 days after the one before it, rather than
+  // one row with fuzzy built-in recurrence.
+  const repeats = Math.max(1, Number(repeatWeeks) || 1);
+  if (isNew && repeats > 1 && date) {
+    const baseDate = new Date(date + 'T00:00:00');
+    for (let i = 1; i < repeats; i++) {
+      const nextDate = new Date(baseDate);
+      nextDate.setDate(nextDate.getDate() + 7 * i);
+      const nextRow = { ...row, due_date: nextDate.toISOString().slice(0, 10) };
+      const { data: rd, error: rerr } = await sb.from('homework').insert({ ...nextRow, teacher_id: state.currentUser.id }).select().single();
+      if (rerr) { console.error('Could not create repeat occurrence:', rerr); continue; }
+      const repeatHwId = rd.id;
+      if (assigned !== 'all' && assigned.length > 0) {
+        await sb.from('homework_assignments').insert(assigned.map(studentId => ({ homework_id: repeatHwId, student_id: studentId })));
+      }
+      if (state.attachedFileIds.length > 0) {
+        await sb.from('homework_files').insert(state.attachedFileIds.map(fileId => ({ homework_id: repeatHwId, file_id: fileId })));
+        await createStudentFileCopies(repeatHwId, state.attachedFileIds, assigned, classroomId);
+      }
+    }
+  }
+
   // Return to the classroom's own assignment list when that's where this was created/edited
   // from, so the teacher immediately sees it there instead of landing back on the dashboard.
   state.view = (state.viewingClassroomId === Number(classroomId)) ? 'classroom-assignments' : 'dashboard';
-  state.newHomework = { name: '', description: '', points: '', date: '', classroomId: '' };
+  state.newHomework = { name: '', description: '', points: '', date: '', classroomId: '', repeatWeeks: 1 };
   state.editingHomeworkId = null;
   state.assignedStudentIds = [];
   state.attachedFileIds = [];
@@ -358,5 +383,29 @@ async function saveStudentByTeacher() {
   if (idx !== -1) state.students[idx] = { ...state.students[idx], name: state.profileForm.name, birthDate: state.profileForm.birthDate, bio: state.profileForm.bio };
   state.showStudentEditModal = false;
   alert('Student updated.');
+  render();
+}
+
+// ==============================================
+// ANNOUNCEMENTS (oznámení) — principal broadcasts a short message to the whole school.
+// See patch_grade_comments_announcements.sql for the table/RLS, AnnouncementsView() in
+// view-grades.js for the principal's composer+list, AnnouncementBanner() in
+// view-dashboard.js for what teachers/students see.
+// ==============================================
+async function postAnnouncement() {
+  const message = (state.newAnnouncementText || '').trim();
+  if (!message) return;
+  const { error } = await sb.from('announcements').insert({ principal_id: state.currentUser.id, message });
+  if (error) { alert('Could not post announcement: ' + error.message); return; }
+  state.newAnnouncementText = '';
+  await fetchAnnouncements();
+  render();
+}
+
+async function deleteAnnouncement(id) {
+  if (!confirm('Delete this announcement?')) return;
+  const { error } = await sb.from('announcements').delete().eq('id', id);
+  if (error) { alert('Could not delete announcement: ' + error.message); return; }
+  state.announcements = state.announcements.filter(a => a.id !== id);
   render();
 }

@@ -36,7 +36,7 @@ let state = {
   _editorReturnView: null,
   _slidesCurrentIdx: 0,
 
-  newHomework: { name: '', description: '', points: '', date: '', classroomId: '' },
+  newHomework: { name: '', description: '', points: '', date: '', classroomId: '', repeatWeeks: 1 },
   assignedStudentIds: [],
   attachedFileIds: [],
 
@@ -82,6 +82,13 @@ let state = {
   schedule: [], // flat list of schedule_slots rows, mapped — { id, schoolClassId, classroomId, dayOfWeek, period }
   scheduleEditingClassId: null, // principal: which school class's grid is open for editing
   scheduleDragClassroomId: null, // principal: classroom id currently being dragged from the subject sidebar
+
+  // Announcements (oznámení) — principal broadcasts a short message, read by every signed-in
+  // profile (teacher + student). See patch_grade_comments_announcements.sql for the table/RLS,
+  // AnnouncementsView() in view-grades.js (principal composer+list), and AnnouncementBanner()
+  // in view-dashboard.js (what teachers/students see).
+  announcements: [], // { id, message, createdAt }
+  newAnnouncementText: '',
 };
 
 // --- Utility ---
