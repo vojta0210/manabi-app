@@ -114,12 +114,12 @@ function AuthScreen() {
 function PrincipalCorner() {
   if (!state.principalCornerOpen) {
     return el('button', {
-      className: 'fixed bottom-3 right-3 w-2.5 h-2.5 rounded-full bg-gray-200 hover:bg-gray-400 transition opacity-40 hover:opacity-100 z-50',
+      className: 'fixed bottom-3 left-3 w-2.5 h-2.5 rounded-full bg-gray-200 hover:bg-gray-400 transition opacity-40 hover:opacity-100 z-50',
       onClick: () => { state.principalCornerOpen = true; render(); }
     });
   }
   const isReg = state.principalCornerReg;
-  return el('div', { className: 'fixed bottom-3 right-3 w-64 bg-white border-2 border-black shadow-xl p-4 z-50 space-y-3' },
+  return el('div', { className: 'fixed bottom-3 left-3 w-64 bg-white border-2 border-black shadow-xl p-4 z-50 space-y-3' },
     el('div', { className: 'flex items-center justify-between' },
       el('p', { className: 'text-[10px] font-bold text-gray-400 uppercase tracking-widest' }, isReg ? 'Principal — Register' : 'Principal'),
       el('button', { className: 'text-gray-300 hover:text-black text-xs', onClick: () => { state.principalCornerOpen = false; render(); } }, '✕')
