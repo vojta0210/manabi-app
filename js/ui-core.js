@@ -77,7 +77,10 @@ function dismissToast() {
 function ToastDisplay() {
   if (!state.toast) return null;
   const isSuccess = state.toast.kind === 'success';
-  return el('div', { className: `fixed bottom-6 right-6 z-[100] max-w-sm p-4 border-2 border-black shadow-2xl flex items-start gap-4 ${isSuccess ? 'bg-black text-white' : 'bg-white text-black'}` },
+  // bottom-20 (not bottom-6) so this clears the "Powered by Netlify" badge Netlify injects
+  // bottom-right on the free tier — the same corner that forced the principal-login dot to
+  // move to bottom-left earlier. Left side stays clear since that dot lives there.
+  return el('div', { className: `fixed bottom-20 right-6 z-[100] max-w-sm p-4 border-2 border-black shadow-2xl flex items-start gap-4 ${isSuccess ? 'bg-black text-white' : 'bg-white text-black'}` },
     el('p', { className: 'text-sm font-bold flex-1 whitespace-pre-wrap' }, state.toast.message),
     el('button', { className: `flex-shrink-0 font-bold ${isSuccess ? 'text-gray-400 hover:text-white' : 'text-gray-300 hover:text-black'} transition`, onClick: dismissToast }, '×')
   );
