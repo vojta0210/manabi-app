@@ -88,8 +88,9 @@ let state = {
   // signed-in profile it's targeted at. See patch_announcement_targeting.sql for the table/RLS,
   // AnnouncementsView() in view-grades.js (principal composer+list), and AnnouncementBanner()
   // in view-dashboard.js (what teachers/students see).
-  announcements: [], // { id, message, createdAt, audience, targetGrade, targetSchoolClassId, principalName }
+  announcements: [], // { id, message, shortDescription, createdAt, audience, targetGrade, targetSchoolClassId, principalName }
   newAnnouncementText: '',
+  newAnnouncementShortDescription: '', // required — the collapsed preview text (and the Calendar label once pinned)
   newAnnouncementAudience: 'all', // 'all' | 'teachers' | 'students' | 'grade' | 'class'
   newAnnouncementGrade: 1,          // used when audience === 'grade' (ročník 1-4)
   newAnnouncementSchoolClassId: '', // used when audience === 'class' — a school_classes id
@@ -102,6 +103,7 @@ let state = {
   // view-dashboard.js.
   announcementReceipts: [], // { id, announcementId, userId, status: 'pinned'|'dismissed', pinDate }
   expandedAnnouncementIds: [], // ids currently expanded open in the banner (UI-only, not persisted)
+  announcementPinDateDrafts: {}, // { [announcementId]: 'YYYY-MM-DD' } — the date picker draft in the banner, before "Pin" is clicked (UI-only, not persisted)
 };
 
 // --- Utility ---

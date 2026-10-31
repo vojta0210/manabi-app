@@ -126,17 +126,24 @@ function getStudentUrgentHomework() {
 }
 
 // Announcements (see actions.js postAnnouncement/AnnouncementsView in view-grades.js) —
-// shown at the top of the teacher/student dashboard as a collapsed "Zpráva od: X" row per
-// announcement. Click to expand the message and either pin it to the Calendar (pinDate =
-// today, see CalendarView() in view-settings.js) or dismiss it — either way it's recorded
-// in announcement_receipts (patch_announcement_receipts.sql) and drops out of this banner.
+// shown at the top of the teacher/student dashboard. The collapsed row shows the
+// principal-authored "popis zprávy" (short_description); click it to expand the full
+// message and either pin it to the Calendar on a date the recipient picks (see
+// CalendarView() in view-settings.js — it shows that same short description) or dismiss
+// it — either way it's recorded in announcement_receipts (patch_announcement_receipts.sql)
+// and drops out of this banner.
 function AnnouncementBanner() {
   const handledIds = new Set((state.announcementReceipts || []).map(r => r.announcementId));
   const pending = (state.announcements || []).filter(a => !handledIds.has(a.id)).slice(0, 5);
   if (pending.length === 0) return null;
+  const todayStr = new Date().toISOString().slice(0, 10);
   return el('div', { className: 'space-y-2 mb-2' },
     ...pending.map(a => {
       const isExpanded = state.expandedAnnouncementIds.includes(a.id);
+      // Older announcements posted before patch_announcement_short_description.sql have no
+      // short_description — fall back to a trimmed slice of the message so the row isn't blank.
+      const previewLabel = a.shortDescription || (a.message ? a.message.slice(0, 60) : 'Oznámení');
+      const pinDateDraft = state.announcementPinDateDrafts[a.id] || todayStr;
       return el('div', { className: 'border-2 border-black bg-gray-50' },
         el('div', {
           className: 'flex items-center justify-between gap-3 p-4 cursor-pointer',
@@ -147,16 +154,25 @@ function AnnouncementBanner() {
             render();
           }
         },
-          el('span', { className: 'text-sm font-bold text-black' }, `Zpráva od: ${a.principalName || 'Principal'}`),
+          el('div', { className: 'min-w-0' },
+            el('p', { className: 'text-sm font-bold text-black truncate' }, previewLabel),
+            el('p', { className: 'text-[10px] text-gray-400 uppercase tracking-wider mt-0.5' }, `Zpráva od: ${a.principalName || 'Principal'}`)
+          ),
           el('span', { className: 'text-xs text-gray-400 flex-shrink-0' }, isExpanded ? '▲' : '▼')
         ),
         isExpanded ? el('div', { className: 'px-4 pb-4 space-y-3' },
           el('p', { className: 'text-sm text-black whitespace-pre-wrap' }, a.message),
           el('p', { className: 'text-[10px] text-gray-400 uppercase tracking-wider' }, new Date(a.createdAt).toLocaleString()),
           el('div', { className: 'flex items-center gap-3 flex-wrap pt-3 border-t border-gray-200' },
+            el('input', {
+              type: 'date',
+              className: 'border-b-2 border-gray-200 focus:border-black outline-none py-1 text-black bg-transparent text-sm transition',
+              value: pinDateDraft,
+              onInput: (e) => { state.announcementPinDateDrafts = { ...state.announcementPinDateDrafts, [a.id]: e.target.value }; render(); }
+            }),
             el('button', {
               className: 'px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition',
-              onClick: () => pinAnnouncement(a.id, new Date().toISOString().slice(0, 10))
+              onClick: () => pinAnnouncement(a.id, pinDateDraft)
             }, 'Připnout do kalendáře'),
             el('button', {
               className: 'px-4 py-2 border-2 border-gray-300 text-gray-500 text-xs font-bold uppercase tracking-wider hover:border-black hover:text-black transition',

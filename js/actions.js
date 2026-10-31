@@ -396,12 +396,14 @@ async function saveStudentByTeacher() {
 // ==============================================
 async function postAnnouncement() {
   const message = (state.newAnnouncementText || '').trim();
+  const shortDescription = (state.newAnnouncementShortDescription || '').trim();
   if (!message) return;
+  if (!shortDescription) return alert('Add a short description first — it\'s what recipients see before they open the message, and the only thing shown if they pin it to their Calendar.');
   const audience = state.newAnnouncementAudience || 'all';
   // principal_name is denormalized here (rather than read back from `profiles` by every
   // recipient) so the banner can show "Zpráva od: X" without a new RLS policy letting
   // every teacher/student read the principal's profile row — see patch_announcement_receipts.sql.
-  const row = { principal_id: state.currentUser.id, principal_name: state.currentUser.name, message, audience };
+  const row = { principal_id: state.currentUser.id, principal_name: state.currentUser.name, message, short_description: shortDescription, audience };
   if (audience === 'grade') {
     row.target_grade = Number(state.newAnnouncementGrade) || 1;
   } else if (audience === 'class') {
@@ -411,6 +413,7 @@ async function postAnnouncement() {
   const { error } = await sb.from('announcements').insert(row);
   if (error) { alert('Could not post announcement: ' + error.message); return; }
   state.newAnnouncementText = '';
+  state.newAnnouncementShortDescription = '';
   await fetchAnnouncements();
   render();
 }

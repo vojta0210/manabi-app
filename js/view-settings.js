@@ -76,7 +76,14 @@ function CalendarView() {
           if (cls) attrs.title = cls.name;
           return el('div', attrs, ev.name);
         }),
-        ...dayPins.map(a => el('div', { className: 'text-[10px] py-1 px-2 bg-black text-white font-bold truncate', title: a.message }, a.message))
+        ...dayPins.map(a => {
+          // Only the short description is shown here — never the full message (see
+          // AnnouncementBanner() in view-dashboard.js, where that message stays behind a
+          // click). Older announcements with no short_description show a plain fallback
+          // rather than leaking the message text.
+          const label = a.shortDescription || 'Oznámení';
+          return el('div', { className: 'text-[10px] py-1 px-2 bg-black text-white font-bold truncate', title: label }, label);
+        })
       )
     ));
   }

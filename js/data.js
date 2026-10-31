@@ -75,6 +75,7 @@ function mapAnnouncement(a) {
     targetGrade: a.target_grade ?? null,
     targetSchoolClassId: a.target_school_class_id ?? null,
     principalName: a.principal_name || '',
+    shortDescription: a.short_description || '',
   };
 }
 function mapAnnouncementReceipt(r) {

@@ -799,7 +799,14 @@ function AnnouncementsView() {
   const pickerOpen = state.newAnnouncementPickerOpen;
   return el('div', { className: 'space-y-8 max-w-2xl' },
     el('div', {},
-      el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2' }, 'New announcement'),
+      el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2' }, 'Popis zprávy'),
+      el('input', {
+        className: 'w-full border-b-2 border-gray-200 focus:border-black outline-none py-2 text-black bg-transparent font-light text-base transition',
+        placeholder: 'Short label — shown before the message is opened, and on the Calendar if pinned',
+        value: state.newAnnouncementShortDescription,
+        onInput: (e) => { state.newAnnouncementShortDescription = e.target.value; }
+      }),
+      el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 mt-5' }, 'New announcement'),
       el('textarea', {
         className: 'w-full border-2 border-gray-200 focus:border-black outline-none p-4 text-black bg-transparent font-light text-base transition resize-none',
         rows: 3,
@@ -872,6 +879,7 @@ function AnnouncementsView() {
         : el('div', { className: 'space-y-3' }, ...state.announcements.map(a =>
           el('div', { className: 'flex items-start justify-between gap-4 p-4 border border-gray-100' },
             el('div', {},
+              a.shortDescription ? el('p', { className: 'text-xs font-bold text-black uppercase tracking-wider mb-1' }, a.shortDescription) : null,
               el('p', { className: 'text-sm text-black whitespace-pre-wrap' }, a.message),
               el('p', { className: 'text-[10px] text-gray-400 mt-2 uppercase tracking-wider' }, `${announcementAudienceLabel(a)} · ${new Date(a.createdAt).toLocaleString()}`)
             ),
