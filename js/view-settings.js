@@ -22,6 +22,16 @@ function CalendarView() {
     });
   }
 
+  // Announcements this user pinned to a date (announcement_receipts, status 'pinned') —
+  // see pinAnnouncement() in actions.js and AnnouncementBanner() in view-dashboard.js,
+  // where that choice gets made. Grouped by pin_date so the day loop below can look them up.
+  const pinnedAnnouncementsByDate = {};
+  (state.announcementReceipts || []).forEach(r => {
+    if (r.status !== 'pinned' || !r.pinDate) return;
+    const a = state.announcements.find(x => x.id === r.announcementId);
+    if (a) (pinnedAnnouncementsByDate[r.pinDate] ||= []).push(a);
+  });
+
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
   const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -54,16 +64,20 @@ function CalendarView() {
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const dayEvents = events.filter(e => e.date === dateStr);
+    const dayPins = pinnedAnnouncementsByDate[dateStr] || [];
     const isToday = isCurrentMonth && today.getDate() === d;
     const dayNumber = isToday ? el('span', { className: 'inline-flex items-center justify-center w-7 h-7 rounded-full bg-black text-white text-sm font-bold' }, d) : el('span', { className: 'text-lg font-light text-gray-400' }, d);
     grid.appendChild(el('div', { className: `min-h-[120px] p-2 border-t-2 ${isToday ? 'border-black' : 'border-gray-100'}` },
       dayNumber,
-      el('div', { className: 'mt-2 space-y-1' }, ...dayEvents.map(ev => {
-        const cls = state.classrooms.find(c => c.id === ev.classroomId);
-        const attrs = { className: 'text-[10px] py-1 px-2 text-white font-bold truncate', style: { backgroundColor: (cls && cls.color) || '#000000' } };
-        if (cls) attrs.title = cls.name;
-        return el('div', attrs, ev.name);
-      }))
+      el('div', { className: 'mt-2 space-y-1' },
+        ...dayEvents.map(ev => {
+          const cls = state.classrooms.find(c => c.id === ev.classroomId);
+          const attrs = { className: 'text-[10px] py-1 px-2 text-white font-bold truncate', style: { backgroundColor: (cls && cls.color) || '#000000' } };
+          if (cls) attrs.title = cls.name;
+          return el('div', attrs, ev.name);
+        }),
+        ...dayPins.map(a => el('div', { className: 'text-[10px] py-1 px-2 bg-black text-white font-bold truncate', title: a.message }, a.message))
+      )
     ));
   }
 

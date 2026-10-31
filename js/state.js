@@ -88,12 +88,20 @@ let state = {
   // signed-in profile it's targeted at. See patch_announcement_targeting.sql for the table/RLS,
   // AnnouncementsView() in view-grades.js (principal composer+list), and AnnouncementBanner()
   // in view-dashboard.js (what teachers/students see).
-  announcements: [], // { id, message, createdAt, audience, targetGrade, targetSchoolClassId }
+  announcements: [], // { id, message, createdAt, audience, targetGrade, targetSchoolClassId, principalName }
   newAnnouncementText: '',
   newAnnouncementAudience: 'all', // 'all' | 'teachers' | 'students' | 'grade' | 'class'
   newAnnouncementGrade: 1,          // used when audience === 'grade' (ročník 1-4)
   newAnnouncementSchoolClassId: '', // used when audience === 'class' — a school_classes id
   newAnnouncementPickerOpen: false, // whether the "Send to" picker is expanded (defaults closed, sends to Everyone)
+
+  // Per-recipient receipts for announcements — once a teacher/student pins or dismisses an
+  // announcement from their dashboard banner, a row lands here so it stops showing up in
+  // the banner. See patch_announcement_receipts.sql for the table/RLS,
+  // pinAnnouncement()/dismissAnnouncement() in actions.js, and AnnouncementBanner() in
+  // view-dashboard.js.
+  announcementReceipts: [], // { id, announcementId, userId, status: 'pinned'|'dismissed', pinDate }
+  expandedAnnouncementIds: [], // ids currently expanded open in the banner (UI-only, not persisted)
 };
 
 // --- Utility ---

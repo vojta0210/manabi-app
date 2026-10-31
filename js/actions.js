@@ -398,7 +398,10 @@ async function postAnnouncement() {
   const message = (state.newAnnouncementText || '').trim();
   if (!message) return;
   const audience = state.newAnnouncementAudience || 'all';
-  const row = { principal_id: state.currentUser.id, message, audience };
+  // principal_name is denormalized here (rather than read back from `profiles` by every
+  // recipient) so the banner can show "Zpráva od: X" without a new RLS policy letting
+  // every teacher/student read the principal's profile row — see patch_announcement_receipts.sql.
+  const row = { principal_id: state.currentUser.id, principal_name: state.currentUser.name, message, audience };
   if (audience === 'grade') {
     row.target_grade = Number(state.newAnnouncementGrade) || 1;
   } else if (audience === 'class') {
@@ -417,5 +420,26 @@ async function deleteAnnouncement(id) {
   const { error } = await sb.from('announcements').delete().eq('id', id);
   if (error) { alert('Could not delete announcement: ' + error.message); return; }
   state.announcements = state.announcements.filter(a => a.id !== id);
+  render();
+}
+
+// ------------------------------------------------------------------------------
+// Per-recipient receipts (patch_announcement_receipts.sql) — a teacher/student reading
+// AnnouncementBanner() in view-dashboard.js picks one of these two per announcement; either
+// one removes it from their banner (it's in state.announcementReceipts from then on).
+// ------------------------------------------------------------------------------
+async function pinAnnouncement(announcementId, pinDate) {
+  const row = { announcement_id: announcementId, user_id: state.currentUser.id, status: 'pinned', pin_date: pinDate };
+  const { error } = await sb.from('announcement_receipts').upsert(row, { onConflict: 'announcement_id,user_id' });
+  if (error) { alert('Could not pin announcement: ' + error.message); return; }
+  await fetchAnnouncementReceipts();
+  render();
+}
+
+async function dismissAnnouncement(announcementId) {
+  const row = { announcement_id: announcementId, user_id: state.currentUser.id, status: 'dismissed' };
+  const { error } = await sb.from('announcement_receipts').upsert(row, { onConflict: 'announcement_id,user_id' });
+  if (error) { alert('Could not dismiss announcement: ' + error.message); return; }
+  await fetchAnnouncementReceipts();
   render();
 }

@@ -74,7 +74,11 @@ function mapAnnouncement(a) {
     audience: a.audience || 'all',
     targetGrade: a.target_grade ?? null,
     targetSchoolClassId: a.target_school_class_id ?? null,
+    principalName: a.principal_name || '',
   };
+}
+function mapAnnouncementReceipt(r) {
+  return { id: r.id, announcementId: r.announcement_id, userId: r.user_id, status: r.status, pinDate: r.pin_date };
 }
 
 async function fetchAllData() {
@@ -143,5 +147,20 @@ async function fetchAnnouncements() {
   } catch (e) {
     console.warn('Announcements not loaded (migration not run yet?):', e.message);
     state.announcements = [];
+  }
+  await fetchAnnouncementReceipts();
+}
+
+// Kept in its own try/catch for the same reason as fetchAnnouncements() above:
+// `announcement_receipts` (patch_announcement_receipts.sql) is newer still, and RLS already
+// scopes this to just the signed-in user's own receipts, so no extra filtering needed here.
+async function fetchAnnouncementReceipts() {
+  try {
+    const { data, error } = await sb.from('announcement_receipts').select('*');
+    if (error) throw error;
+    state.announcementReceipts = (data || []).map(mapAnnouncementReceipt);
+  } catch (e) {
+    console.warn('Announcement receipts not loaded (migration not run yet?):', e.message);
+    state.announcementReceipts = [];
   }
 }

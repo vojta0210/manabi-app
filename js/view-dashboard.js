@@ -125,19 +125,47 @@ function getStudentUrgentHomework() {
   });
 }
 
-// Latest school-wide announcements (see actions.js postAnnouncement/AnnouncementsView in
-// view-grades.js) — shown at the top of the teacher/student dashboard, newest 3 first.
+// Announcements (see actions.js postAnnouncement/AnnouncementsView in view-grades.js) —
+// shown at the top of the teacher/student dashboard as a collapsed "Zpráva od: X" row per
+// announcement. Click to expand the message and either pin it to the Calendar (pinDate =
+// today, see CalendarView() in view-settings.js) or dismiss it — either way it's recorded
+// in announcement_receipts (patch_announcement_receipts.sql) and drops out of this banner.
 function AnnouncementBanner() {
-  if (!state.announcements || state.announcements.length === 0) return null;
-  const recent = state.announcements.slice(0, 3);
+  const handledIds = new Set((state.announcementReceipts || []).map(r => r.announcementId));
+  const pending = (state.announcements || []).filter(a => !handledIds.has(a.id)).slice(0, 5);
+  if (pending.length === 0) return null;
   return el('div', { className: 'space-y-2 mb-2' },
-    ...recent.map(a => el('div', { className: 'flex items-start gap-3 p-4 border-2 border-black bg-gray-50' },
-      el('span', { className: 'text-lg flex-shrink-0' }, '📣'),
-      el('div', { className: 'flex-1 min-w-0' },
-        el('p', { className: 'text-sm font-bold text-black whitespace-pre-wrap' }, a.message),
-        el('p', { className: 'text-[10px] text-gray-400 mt-1 uppercase tracking-wider' }, new Date(a.createdAt).toLocaleString())
-      )
-    ))
+    ...pending.map(a => {
+      const isExpanded = state.expandedAnnouncementIds.includes(a.id);
+      return el('div', { className: 'border-2 border-black bg-gray-50' },
+        el('div', {
+          className: 'flex items-center justify-between gap-3 p-4 cursor-pointer',
+          onClick: () => {
+            state.expandedAnnouncementIds = isExpanded
+              ? state.expandedAnnouncementIds.filter(id => id !== a.id)
+              : [...state.expandedAnnouncementIds, a.id];
+            render();
+          }
+        },
+          el('span', { className: 'text-sm font-bold text-black' }, `Zpráva od: ${a.principalName || 'Principal'}`),
+          el('span', { className: 'text-xs text-gray-400 flex-shrink-0' }, isExpanded ? '▲' : '▼')
+        ),
+        isExpanded ? el('div', { className: 'px-4 pb-4 space-y-3' },
+          el('p', { className: 'text-sm text-black whitespace-pre-wrap' }, a.message),
+          el('p', { className: 'text-[10px] text-gray-400 uppercase tracking-wider' }, new Date(a.createdAt).toLocaleString()),
+          el('div', { className: 'flex items-center gap-3 flex-wrap pt-3 border-t border-gray-200' },
+            el('button', {
+              className: 'px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition',
+              onClick: () => pinAnnouncement(a.id, new Date().toISOString().slice(0, 10))
+            }, 'Připnout do kalendáře'),
+            el('button', {
+              className: 'px-4 py-2 border-2 border-gray-300 text-gray-500 text-xs font-bold uppercase tracking-wider hover:border-black hover:text-black transition',
+              onClick: () => dismissAnnouncement(a.id)
+            }, 'Smazat')
+          )
+        ) : null
+      );
+    })
   );
 }
 
