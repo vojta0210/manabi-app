@@ -780,15 +780,23 @@ function announcementAudienceLabel(a) {
   return 'Everyone';
 }
 
+// Short label for the currently-selected audience, shown in the collapsed picker summary
+// and in the composer's "Sending to …" line.
+function announcementDraftAudienceLabel() {
+  const audience = state.newAnnouncementAudience;
+  if (audience === 'teachers') return 'All Teachers';
+  if (audience === 'students') return 'All Students';
+  if (audience === 'grade') return `Ročník ${state.newAnnouncementGrade}`;
+  if (audience === 'class') {
+    const sc = state.schoolClasses.find(c => String(c.id) === String(state.newAnnouncementSchoolClassId));
+    return sc ? `Class ${sc.name}` : 'a class…';
+  }
+  return 'Everyone';
+}
+
 function AnnouncementsView() {
   const audience = state.newAnnouncementAudience;
-  const audienceOptions = [
-    ['all', 'Everyone'],
-    ['teachers', 'All Teachers'],
-    ['students', 'All Students'],
-    ['grade', 'Ročník'],
-    ['class', 'Class (třída)'],
-  ];
+  const pickerOpen = state.newAnnouncementPickerOpen;
   return el('div', { className: 'space-y-8 max-w-2xl' },
     el('div', {},
       el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2' }, 'New announcement'),
@@ -799,38 +807,59 @@ function AnnouncementsView() {
         value: state.newAnnouncementText,
         onInput: (e) => { state.newAnnouncementText = e.target.value; }
       }),
-      el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 mt-5' }, 'Send to'),
-      el('div', { className: 'flex flex-wrap gap-2' },
-        ...audienceOptions.map(([val, label]) =>
-          el('button', {
-            className: `px-4 py-2 border-2 text-xs font-bold uppercase tracking-wider transition ${audience === val ? 'bg-black text-white border-black' : 'bg-white text-black border-gray-200 hover:border-gray-400'}`,
-            onClick: () => { state.newAnnouncementAudience = val; render(); }
-          }, label)
-        )
-      ),
-      audience === 'grade'
-        ? el('div', { className: 'flex flex-wrap gap-2 mt-3' },
-          ...[1, 2, 3, 4].map(grade =>
+
+      // Collapsed by default — defaults to Everyone, click "Change" to pick a narrower
+      // audience. Picking "Class" expands a second dropdown inline to choose which one.
+      !pickerOpen
+        ? el('div', { className: 'flex items-center gap-2 mt-3 text-sm' },
+            el('span', { className: 'text-gray-400' }, 'Sending to'),
+            el('span', { className: 'font-bold text-black' }, announcementDraftAudienceLabel()),
             el('button', {
-              className: `w-12 h-12 border-2 font-bold text-lg transition ${Number(state.newAnnouncementGrade) === grade ? 'bg-black text-white border-black' : 'bg-white text-black border-gray-200 hover:border-gray-400'}`,
-              onClick: () => { state.newAnnouncementGrade = grade; render(); }
-            }, String(grade))
+              className: 'text-[11px] font-bold text-gray-400 hover:text-black uppercase tracking-wider underline underline-offset-2',
+              onClick: () => { state.newAnnouncementPickerOpen = true; render(); }
+            }, 'Change')
           )
-        )
-        : null,
-      audience === 'class'
-        ? el('select', {
-          className: 'mt-3 w-full max-w-xs p-3 border-b-2 border-gray-200 focus:border-black outline-none text-black bg-transparent font-light text-base transition',
-          onInput: (e) => { state.newAnnouncementSchoolClassId = e.target.value; }
-        },
-          el('option', { value: '' }, state.schoolClasses.length ? 'Select a class…' : 'No classes set up yet'),
-          ...state.schoolClasses.map(sc => {
-            const opt = el('option', { value: sc.id }, sc.name);
-            if (String(sc.id) === String(state.newAnnouncementSchoolClassId)) opt.selected = true;
-            return opt;
-          })
-        )
-        : null,
+        : el('div', { className: 'flex items-center gap-3 flex-wrap mt-3 p-3 bg-gray-50 border border-gray-200' },
+            el('span', { className: 'text-[11px] font-bold text-gray-400 uppercase tracking-wider' }, 'Send to'),
+            el('select', {
+              className: 'border-b-2 border-gray-200 focus:border-black outline-none py-1 text-black bg-transparent text-sm transition',
+              onInput: (e) => { state.newAnnouncementAudience = e.target.value; render(); }
+            },
+              ...[['all', 'Everyone'], ['teachers', 'All Teachers'], ['students', 'All Students'], ['grade', 'Grade (ročník)'], ['class', 'Class (třída)']].map(([val, label]) => {
+                const opt = el('option', { value: val }, label);
+                if (audience === val) opt.selected = true;
+                return opt;
+              })
+            ),
+            audience === 'grade'
+              ? el('div', { className: 'flex gap-1' },
+                ...[1, 2, 3, 4].map(grade =>
+                  el('button', {
+                    className: `w-7 h-7 border-2 text-xs font-bold transition ${Number(state.newAnnouncementGrade) === grade ? 'bg-black text-white border-black' : 'bg-white text-black border-gray-200 hover:border-gray-400'}`,
+                    onClick: () => { state.newAnnouncementGrade = grade; render(); }
+                  }, String(grade))
+                )
+              )
+              : null,
+            audience === 'class'
+              ? el('select', {
+                className: 'border-b-2 border-gray-200 focus:border-black outline-none py-1 text-black bg-transparent text-sm transition',
+                onInput: (e) => { state.newAnnouncementSchoolClassId = e.target.value; render(); }
+              },
+                el('option', { value: '' }, state.schoolClasses.length ? 'Select a class…' : 'No classes set up yet'),
+                ...state.schoolClasses.map(sc => {
+                  const opt = el('option', { value: sc.id }, sc.name);
+                  if (String(sc.id) === String(state.newAnnouncementSchoolClassId)) opt.selected = true;
+                  return opt;
+                })
+              )
+              : null,
+            el('button', {
+              className: 'ml-auto text-[11px] font-bold text-gray-400 hover:text-black uppercase tracking-wider underline underline-offset-2',
+              onClick: () => { state.newAnnouncementPickerOpen = false; render(); }
+            }, 'Done')
+          ),
+
       el('button', {
         className: 'mt-5 px-6 py-3 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition',
         onClick: postAnnouncement

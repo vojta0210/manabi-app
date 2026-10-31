@@ -93,6 +93,7 @@ let state = {
   newAnnouncementAudience: 'all', // 'all' | 'teachers' | 'students' | 'grade' | 'class'
   newAnnouncementGrade: 1,          // used when audience === 'grade' (ročník 1-4)
   newAnnouncementSchoolClassId: '', // used when audience === 'class' — a school_classes id
+  newAnnouncementPickerOpen: false, // whether the "Send to" picker is expanded (defaults closed, sends to Everyone)
 };
 
 // --- Utility ---
