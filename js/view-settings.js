@@ -79,10 +79,16 @@ function CalendarView() {
         ...dayPins.map(a => {
           // Only the short description is shown here — never the full message (see
           // AnnouncementBanner() in view-dashboard.js, where that message stays behind a
-          // click). Older announcements with no short_description show a plain fallback
-          // rather than leaking the message text.
+          // click too). Older announcements with no short_description show a plain
+          // fallback rather than leaking the message text. Clicking it opens
+          // CalendarAnnouncementModal() below so they can read the full message and close
+          // it again.
           const label = a.shortDescription || 'Oznámení';
-          return el('div', { className: 'text-[10px] py-1 px-2 bg-black text-white font-bold truncate', title: label }, label);
+          return el('div', {
+            className: 'text-[10px] py-1 px-2 bg-black text-white font-bold truncate cursor-pointer hover:bg-gray-700 transition',
+            title: label,
+            onClick: () => { state.openedCalendarAnnouncementId = a.id; render(); }
+          }, label);
         })
       )
     ));
@@ -91,7 +97,26 @@ function CalendarView() {
   // gap-4 here matches the day grid below (line ~42) — without it the two grids' 7 equal
   // columns compute to different actual widths and the header drifts out of alignment with
   // the day cells under it.
-  return el('div', {}, navBar, el('div', { className: 'grid grid-cols-7 gap-4 border-b border-black pb-4 mb-4' }, ...['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => el('div', { className: 'text-xs font-bold text-gray-400 uppercase' }, d))), grid);
+  return el('div', {}, navBar, el('div', { className: 'grid grid-cols-7 gap-4 border-b border-black pb-4 mb-4' }, ...['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => el('div', { className: 'text-xs font-bold text-gray-400 uppercase' }, d))), grid,
+    state.openedCalendarAnnouncementId ? CalendarAnnouncementModal() : null
+  );
+}
+
+// Opened by clicking a pinned announcement's label on the Calendar grid above — shows the
+// full message (the grid itself only ever shows the short description) with a Close button
+// that just clears state.openedCalendarAnnouncementId. Same overlay pattern as ClassroomModal().
+function CalendarAnnouncementModal() {
+  const a = state.announcements.find(x => x.id === state.openedCalendarAnnouncementId);
+  const close = () => { state.openedCalendarAnnouncementId = null; render(); };
+  if (!a) { close(); return null; }
+  return el('div', { className: 'fixed inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-50 p-4', onClick: close },
+    el('div', { className: 'w-full max-w-lg p-12 bg-white shadow-2xl border border-gray-100', onClick: (e) => e.stopPropagation() },
+      a.shortDescription ? el('h3', { className: 'text-2xl font-light text-black uppercase tracking-wide mb-6' }, a.shortDescription) : null,
+      el('p', { className: 'text-sm text-black whitespace-pre-wrap mb-6' }, a.message),
+      el('p', { className: 'text-[10px] text-gray-400 uppercase tracking-wider mb-8' }, `Zpráva od: ${a.principalName || 'Principal'} · ${new Date(a.createdAt).toLocaleString()}`),
+      el('button', { className: 'w-full py-4 bg-black text-white font-bold uppercase tracking-widest hover:bg-gray-800 transition', onClick: close }, 'Close')
+    )
+  );
 }
 
 // ==============================================

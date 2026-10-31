@@ -104,6 +104,7 @@ let state = {
   announcementReceipts: [], // { id, announcementId, userId, status: 'pinned'|'dismissed', pinDate }
   expandedAnnouncementIds: [], // ids currently expanded open in the banner (UI-only, not persisted)
   announcementPinDateDrafts: {}, // { [announcementId]: 'YYYY-MM-DD' } — the date picker draft in the banner, before "Pin" is clicked (UI-only, not persisted)
+  openedCalendarAnnouncementId: null, // which pinned announcement's full-message modal is open on the Calendar (UI-only, not persisted)
 };
 
 // --- Utility ---
