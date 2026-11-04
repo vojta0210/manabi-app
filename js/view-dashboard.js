@@ -195,20 +195,20 @@ function AnnouncementHistoryWidget() {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   if (history.length === 0) return null;
 
+  // Deliberately quiet: no icon, no border, no fill in the resting state — a plain text
+  // toggle like the "Show/Hide" link on "My Assigned Files" below, so this doesn't visually
+  // compete with AnnouncementBanner() above (which *does* need attention). Still has an
+  // explicit, consistently-placed label, so it stays easy to find on purpose.
   const isOpen = state.announcementHistoryOpen;
-  return el('div', { className: 'border border-gray-200 mb-2' },
+  return el('div', { className: 'mb-4' },
     el('button', {
-      className: 'w-full flex items-center justify-between gap-3 p-3 hover:bg-gray-50 transition',
+      className: 'flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-black uppercase tracking-wider transition',
       onClick: () => { state.announcementHistoryOpen = !isOpen; render(); }
     },
-      el('div', { className: 'flex items-center gap-2.5' },
-        Icon('megaphone', 'w-3.5 h-3.5 text-gray-400'),
-        el('span', { className: 'text-xs font-bold text-black uppercase tracking-widest' }, 'Zprávy'),
-        el('span', { className: 'text-[10px] font-bold text-gray-400' }, `(${history.length})`)
-      ),
-      el('span', { className: 'text-xs text-gray-400' }, isOpen ? '▲' : '▼')
+      el('span', { className: 'underline' }, `Zprávy (${history.length})`),
+      el('span', { className: 'text-[9px] no-underline' }, isOpen ? '▲' : '▼')
     ),
-    isOpen ? el('div', { className: 'border-t border-gray-100 max-h-72 overflow-y-auto' },
+    isOpen ? el('div', { className: 'mt-2 border border-gray-100 max-h-72 overflow-y-auto' },
       ...history.map(a => {
         const receipt = receiptByAnnouncementId[a.id];
         const label = a.shortDescription || (a.message ? a.message.slice(0, 60) : 'Oznámení');
@@ -222,7 +222,7 @@ function AnnouncementHistoryWidget() {
             el('p', { className: 'text-[10px] text-gray-400 uppercase tracking-wider mt-0.5' }, new Date(a.createdAt).toLocaleDateString())
           ),
           el('span', {
-            className: `flex-shrink-0 text-[9px] font-bold uppercase tracking-wider px-2 py-1 ${isPinned ? 'bg-black text-white' : 'border border-gray-300 text-gray-400'}`
+            className: `flex-shrink-0 text-[9px] font-bold uppercase tracking-wider ${isPinned ? 'text-black' : 'text-gray-300'}`
           }, isPinned ? 'Připnuto' : 'Archivováno')
         );
       })
