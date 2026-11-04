@@ -81,13 +81,13 @@ function CalendarView() {
           // AnnouncementBanner() in view-dashboard.js, where that message stays behind a
           // click too). Older announcements with no short_description show a plain
           // fallback rather than leaking the message text. Clicking it opens
-          // CalendarAnnouncementModal() below so they can read the full message and close
-          // it again.
+          // AnnouncementReadModal() (mounted globally — see appendOverlays() in ui-core.js)
+          // so they can read the full message and close it again.
           const label = a.shortDescription || 'Oznámení';
           return el('div', {
             className: 'text-[10px] py-1 px-2 bg-black text-white font-bold truncate cursor-pointer hover:bg-gray-700 transition',
             title: label,
-            onClick: () => { state.openedCalendarAnnouncementId = a.id; render(); }
+            onClick: () => { state.openedAnnouncementId = a.id; render(); }
           }, label);
         })
       )
@@ -97,18 +97,20 @@ function CalendarView() {
   // gap-4 here matches the day grid below (line ~42) — without it the two grids' 7 equal
   // columns compute to different actual widths and the header drifts out of alignment with
   // the day cells under it.
-  return el('div', {}, navBar, el('div', { className: 'grid grid-cols-7 gap-4 border-b border-black pb-4 mb-4' }, ...['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => el('div', { className: 'text-xs font-bold text-gray-400 uppercase' }, d))), grid,
-    state.openedCalendarAnnouncementId ? CalendarAnnouncementModal() : null
-  );
+  return el('div', {}, navBar, el('div', { className: 'grid grid-cols-7 gap-4 border-b border-black pb-4 mb-4' }, ...['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => el('div', { className: 'text-xs font-bold text-gray-400 uppercase' }, d))), grid);
 }
 
-// Opened by clicking a pinned announcement's label on the Calendar grid above — shows the
-// full message (the grid itself only ever shows the short description) with a Close button
-// that just clears state.openedCalendarAnnouncementId. Same overlay pattern as ClassroomModal().
-function CalendarAnnouncementModal() {
-  const a = state.announcements.find(x => x.id === state.openedCalendarAnnouncementId);
-  const close = () => { state.openedCalendarAnnouncementId = null; render(); };
-  if (!a) { close(); return null; }
+// Opened by clicking a pinned announcement's label on the Calendar grid, or a row in the
+// dashboard "Zprávy" history widget (AnnouncementHistoryWidget() in view-dashboard.js) — shows
+// the full message with a status-appropriate footer action, and is mounted once globally via
+// appendOverlays() in ui-core.js so both call sites share one instance.
+function AnnouncementReadModal() {
+  const a = state.announcements.find(x => x.id === state.openedAnnouncementId);
+  const close = () => { state.openedAnnouncementId = null; render(); };
+  if (!a) return null;
+  const receipt = (state.announcementReceipts || []).find(r => r.announcementId === a.id);
+  const isPinned = receipt && receipt.status === 'pinned';
+  const pinDateDraft = state.announcementPinDateDrafts[a.id] || new Date().toISOString().slice(0, 10);
   return el('div', { className: 'fixed inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-50 p-4', onClick: close },
     el('div', { className: 'relative w-full max-w-lg bg-white shadow-2xl border-2 border-black', onClick: (e) => e.stopPropagation() },
       // Quick-exit × in the corner — same visual language as ToastDisplay's dismiss control —
@@ -132,12 +134,28 @@ function CalendarAnnouncementModal() {
         el('p', { className: 'text-sm text-black leading-relaxed whitespace-pre-wrap bg-gray-50 border border-gray-100 p-4' }, a.message)
       ),
 
-      // Footer — Unpin is the actual decision here, so it gets the black primary button, same
-      // as Confirm/Cancel elsewhere in the app; Close is the safe no-op and stays a quiet outline.
-      el('div', { className: 'flex gap-4 p-6 pt-2' },
-        PendingButton('unpinAnnouncement:' + a.id, 'Unpin from Calendar', 'Removing…', () => { unpinAnnouncement(a.id); close(); }, 'flex-1 py-4 bg-black text-white font-bold uppercase tracking-widest text-xs hover:bg-gray-800 transition'),
-        el('button', { className: 'flex-1 py-4 border-2 border-gray-300 text-gray-500 font-bold uppercase tracking-widest text-xs hover:border-black hover:text-black transition', onClick: close }, 'Close')
-      )
+      // Footer — the actual decision (pin/unpin) gets the black primary button, same as
+      // Confirm/Cancel elsewhere in the app; Close is the safe no-op and stays a quiet outline.
+      // Opened from the history widget on an already-dismissed message, there's no calendar
+      // entry to remove — offer to pin it instead, with the same inline date picker the banner
+      // uses, rather than a dead-end Close-only footer.
+      isPinned
+        ? el('div', { className: 'flex gap-4 p-6 pt-2' },
+            PendingButton('unpinAnnouncement:' + a.id, 'Unpin from Calendar', 'Removing…', () => { unpinAnnouncement(a.id); close(); }, 'flex-1 py-4 bg-black text-white font-bold uppercase tracking-widest text-xs hover:bg-gray-800 transition'),
+            el('button', { className: 'flex-1 py-4 border-2 border-gray-300 text-gray-500 font-bold uppercase tracking-widest text-xs hover:border-black hover:text-black transition', onClick: close }, 'Close')
+          )
+        : el('div', { className: 'p-6 pt-2 space-y-3' },
+            el('div', { className: 'flex items-center gap-3' },
+              el('input', {
+                type: 'date',
+                className: 'border-b-2 border-gray-200 focus:border-black outline-none py-1 text-black bg-transparent text-sm transition flex-shrink-0',
+                value: pinDateDraft,
+                onInput: (e) => { state.announcementPinDateDrafts = { ...state.announcementPinDateDrafts, [a.id]: e.target.value }; render(); }
+              }),
+              PendingButton('pinAnnouncement:' + a.id, 'Pin to Calendar', 'Připínám…', () => pinAnnouncement(a.id, pinDateDraft), 'flex-1 py-3 bg-black text-white font-bold uppercase tracking-widest text-xs hover:bg-gray-800 transition')
+            ),
+            el('button', { className: 'w-full py-3 border-2 border-gray-300 text-gray-500 font-bold uppercase tracking-widest text-xs hover:border-black hover:text-black transition', onClick: close }, 'Close')
+          )
     )
   );
 }

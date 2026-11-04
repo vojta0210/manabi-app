@@ -512,7 +512,7 @@ async function dismissAnnouncement(announcementId) {
   });
 }
 
-// Removes this announcement from the Calendar again (opened from CalendarAnnouncementModal()
+// Removes this announcement from the Calendar again (opened from AnnouncementReadModal()
 // in view-settings.js). Deletes the receipt outright rather than just clearing pin_date, so
 // it naturally falls back to "no receipt yet" — meaning it reappears in AnnouncementBanner()
 // in case they want to pin it to a different date or dismiss it instead.

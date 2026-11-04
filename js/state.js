@@ -112,7 +112,8 @@ let state = {
   announcementReceipts: [], // { id, announcementId, userId, status: 'pinned'|'dismissed', pinDate }
   expandedAnnouncementIds: [], // ids currently expanded open in the banner (UI-only, not persisted)
   announcementPinDateDrafts: {}, // { [announcementId]: 'YYYY-MM-DD' } — the date picker draft in the banner, before "Pin" is clicked (UI-only, not persisted)
-  openedCalendarAnnouncementId: null, // which pinned announcement's full-message modal is open on the Calendar (UI-only, not persisted)
+  openedAnnouncementId: null, // which announcement's full-message modal is open — from the Calendar grid or the dashboard "Zprávy" history widget (AnnouncementReadModal() in view-settings.js, mounted globally via appendOverlays()). UI-only, not persisted.
+  announcementHistoryOpen: false, // dashboard "Zprávy" history widget — collapsed by default. UI-only, not persisted.
 };
 
 // --- Utility ---

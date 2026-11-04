@@ -179,6 +179,57 @@ function AnnouncementBanner() {
   );
 }
 
+// ==============================================
+// MESSAGE HISTORY — a small, collapsed-by-default "Zprávy" panel showing every announcement
+// this user has already handled (pinned or dismissed). AnnouncementBanner() above only shows
+// what's still unhandled, so once a message is dismissed it used to vanish for good — this is
+// where it lives afterwards, in case someone wants to read it again later. Clicking a row opens
+// AnnouncementReadModal() (view-settings.js, mounted globally via appendOverlays()).
+// ==============================================
+function AnnouncementHistoryWidget() {
+  if (!state.announcements || state.announcements.length === 0) return null;
+  const receiptByAnnouncementId = {};
+  (state.announcementReceipts || []).forEach(r => { receiptByAnnouncementId[r.announcementId] = r; });
+  const history = state.announcements
+    .filter(a => receiptByAnnouncementId[a.id])
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (history.length === 0) return null;
+
+  const isOpen = state.announcementHistoryOpen;
+  return el('div', { className: 'border border-gray-200 mb-2' },
+    el('button', {
+      className: 'w-full flex items-center justify-between gap-3 p-3 hover:bg-gray-50 transition',
+      onClick: () => { state.announcementHistoryOpen = !isOpen; render(); }
+    },
+      el('div', { className: 'flex items-center gap-2.5' },
+        Icon('megaphone', 'w-3.5 h-3.5 text-gray-400'),
+        el('span', { className: 'text-xs font-bold text-black uppercase tracking-widest' }, 'Zprávy'),
+        el('span', { className: 'text-[10px] font-bold text-gray-400' }, `(${history.length})`)
+      ),
+      el('span', { className: 'text-xs text-gray-400' }, isOpen ? '▲' : '▼')
+    ),
+    isOpen ? el('div', { className: 'border-t border-gray-100 max-h-72 overflow-y-auto' },
+      ...history.map(a => {
+        const receipt = receiptByAnnouncementId[a.id];
+        const label = a.shortDescription || (a.message ? a.message.slice(0, 60) : 'Oznámení');
+        const isPinned = receipt.status === 'pinned';
+        return el('div', {
+          className: 'flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-50 last:border-b-0 cursor-pointer hover:bg-gray-50 transition',
+          onClick: () => { state.openedAnnouncementId = a.id; render(); }
+        },
+          el('div', { className: 'min-w-0' },
+            el('p', { className: 'text-sm font-bold text-black truncate' }, label),
+            el('p', { className: 'text-[10px] text-gray-400 uppercase tracking-wider mt-0.5' }, new Date(a.createdAt).toLocaleDateString())
+          ),
+          el('span', {
+            className: `flex-shrink-0 text-[9px] font-bold uppercase tracking-wider px-2 py-1 ${isPinned ? 'bg-black text-white' : 'border border-gray-300 text-gray-400'}`
+          }, isPinned ? 'Připnuto' : 'Archivováno')
+        );
+      })
+    ) : null
+  );
+}
+
 // ── Teacher Dashboard ──
 function TeacherDashboard() {
   const myClasses = state.classrooms.filter(c => c.teacherId === state.currentUser.id);
@@ -186,6 +237,7 @@ function TeacherDashboard() {
 
   return el('div', { className: 'space-y-10' },
     AnnouncementBanner(),
+    AnnouncementHistoryWidget(),
     el('div', { className: 'flex flex-wrap gap-12 mb-4' },
       StatCard('ACTIVE CLASSROOMS', myClasses.length),
       StatCard('TOTAL ASSIGNMENTS', allHomework.length)
@@ -223,6 +275,7 @@ function StudentDashboard() {
 
   return el('div', { className: 'space-y-10' },
     AnnouncementBanner(),
+    AnnouncementHistoryWidget(),
     urgent.length > 0 ? el('div', { className: 'flex items-center gap-3 p-4 border-2 border-red-500 bg-red-50' },
       el('span', { className: 'text-xl flex-shrink-0' }, '⚠️'),
       el('p', { className: 'text-sm font-bold text-red-700' },

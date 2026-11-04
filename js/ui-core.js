@@ -89,7 +89,7 @@ function ToastDisplay() {
 // ==============================================
 // CONFIRM DIALOG — replaces confirm(). A call site that used to say
 // `if (!confirm('msg')) return; <rest>` now says `showConfirm('msg', () => { <rest> })`.
-// Same overlay pattern as ClassroomModal()/CalendarAnnouncementModal().
+// Same overlay pattern as ClassroomModal()/AnnouncementReadModal().
 // ==============================================
 function showConfirm(message, onConfirm, confirmLabel = 'Confirm') {
   state.confirmDialog = { message, onConfirm, confirmLabel };
@@ -165,6 +165,10 @@ function appendOverlays(root) {
   if (toast) root.appendChild(toast);
   const confirmModal = ConfirmDialogModal();
   if (confirmModal) root.appendChild(confirmModal);
+  // Opened from either the Calendar grid or the dashboard "Zprávy" history widget — mounted
+  // once here instead of duplicated into both views. See view-settings.js.
+  const announcementModal = AnnouncementReadModal();
+  if (announcementModal) root.appendChild(announcementModal);
 }
 
 function LoadingScreen() {
