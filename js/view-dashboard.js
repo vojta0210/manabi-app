@@ -195,18 +195,18 @@ function AnnouncementHistoryWidget() {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   if (history.length === 0) return null;
 
-  // Deliberately quiet: no icon, no border, no fill in the resting state — a plain text
-  // toggle like the "Show/Hide" link on "My Assigned Files" below, so this doesn't visually
-  // compete with AnnouncementBanner() above (which *does* need attention). Still has an
-  // explicit, consistently-placed label, so it stays easy to find on purpose.
+  // Deliberately quiet and tucked at the very bottom of the dashboard (see call sites in
+  // TeacherDashboard()/StudentDashboard() below) — no icon, no border, no fill, no count, no
+  // underline until hovered. It's the last thing on the page rather than competing for
+  // attention near the top, but it's always in that same spot, so it stays findable on purpose.
   const isOpen = state.announcementHistoryOpen;
-  return el('div', { className: 'mb-4' },
+  return el('div', { className: 'pt-2' },
     el('button', {
-      className: 'flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-black uppercase tracking-wider transition',
+      className: 'flex items-center gap-1.5 text-[11px] font-bold text-gray-300 hover:text-gray-500 hover:underline uppercase tracking-wider transition',
       onClick: () => { state.announcementHistoryOpen = !isOpen; render(); }
     },
-      el('span', { className: 'underline' }, `Zprávy (${history.length})`),
-      el('span', { className: 'text-[9px] no-underline' }, isOpen ? '▲' : '▼')
+      el('span', {}, 'Zprávy'),
+      el('span', { className: 'text-[9px]' }, isOpen ? '▲' : '▼')
     ),
     isOpen ? el('div', { className: 'mt-2 border border-gray-100 max-h-72 overflow-y-auto' },
       ...history.map(a => {
@@ -237,7 +237,6 @@ function TeacherDashboard() {
 
   return el('div', { className: 'space-y-10' },
     AnnouncementBanner(),
-    AnnouncementHistoryWidget(),
     el('div', { className: 'flex flex-wrap gap-12 mb-4' },
       StatCard('ACTIVE CLASSROOMS', myClasses.length),
       StatCard('TOTAL ASSIGNMENTS', allHomework.length)
@@ -252,7 +251,8 @@ function TeacherDashboard() {
         ? el('div', { className: 'py-8 border-t border-gray-200 text-gray-400 font-light' }, 'No classes created.')
         : el('div', { className: 'border-t border-gray-200' }, ...myClasses.map(c => ClassroomCard(c, true))),
       state.showClassroomModal ? ClassroomModal() : null
-    )
+    ),
+    AnnouncementHistoryWidget()
   );
 }
 
@@ -275,7 +275,6 @@ function StudentDashboard() {
 
   return el('div', { className: 'space-y-10' },
     AnnouncementBanner(),
-    AnnouncementHistoryWidget(),
     urgent.length > 0 ? el('div', { className: 'flex items-center gap-3 p-4 border-2 border-red-500 bg-red-50' },
       el('span', { className: 'text-xl flex-shrink-0' }, '⚠️'),
       el('p', { className: 'text-sm font-bold text-red-700' },
@@ -295,7 +294,8 @@ function StudentDashboard() {
         : el('div', { className: 'border-t border-gray-200' }, ...myClassrooms.map(c => ClassroomCard(c, false)))
     ),
     StudentFilesSection(pendingStudentFiles),
-    state.showJoinModal ? JoinModal() : null
+    state.showJoinModal ? JoinModal() : null,
+    AnnouncementHistoryWidget()
   );
 }
 
