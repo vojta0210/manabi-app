@@ -110,13 +110,33 @@ function CalendarAnnouncementModal() {
   const close = () => { state.openedCalendarAnnouncementId = null; render(); };
   if (!a) { close(); return null; }
   return el('div', { className: 'fixed inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-50 p-4', onClick: close },
-    el('div', { className: 'w-full max-w-lg p-12 bg-white shadow-2xl border border-gray-100', onClick: (e) => e.stopPropagation() },
-      a.shortDescription ? el('h3', { className: 'text-2xl font-light text-black uppercase tracking-wide mb-6' }, a.shortDescription) : null,
-      el('p', { className: 'text-sm text-black whitespace-pre-wrap mb-6' }, a.message),
-      el('p', { className: 'text-[10px] text-gray-400 uppercase tracking-wider mb-8' }, `Zpráva od: ${a.principalName || 'Principal'} · ${new Date(a.createdAt).toLocaleString()}`),
-      el('div', { className: 'flex gap-4' },
-        el('button', { className: 'flex-1 py-4 bg-black text-white font-bold uppercase tracking-widest hover:bg-gray-800 transition', onClick: close }, 'Close'),
-        PendingButton('unpinAnnouncement:' + a.id, 'Unpin from Calendar', 'Removing…', () => { unpinAnnouncement(a.id); close(); }, 'flex-1 py-4 bg-gray-100 text-black font-bold uppercase tracking-widest hover:bg-gray-200 transition')
+    el('div', { className: 'relative w-full max-w-lg bg-white shadow-2xl border-2 border-black', onClick: (e) => e.stopPropagation() },
+      // Quick-exit × in the corner — same visual language as ToastDisplay's dismiss control —
+      // so closing doesn't require reading all the way down to the footer buttons.
+      el('button', { className: 'absolute top-4 right-4 text-xl font-bold text-gray-300 hover:text-black transition leading-none', onClick: close }, '×'),
+
+      // Header block — who sent it + when, with the megaphone icon used everywhere else
+      // announcements show up, so this reads as the same feature rather than a generic popup.
+      el('div', { className: 'flex items-center gap-3 p-6 pb-5 border-b border-gray-100' },
+        el('div', { className: 'p-2 bg-black flex-shrink-0' }, Icon('megaphone', 'w-4 h-4 text-white')),
+        el('div', { className: 'min-w-0' },
+          el('p', { className: 'text-xs font-bold text-black uppercase tracking-wider truncate' }, `Zpráva od: ${a.principalName || 'Principal'}`),
+          el('p', { className: 'text-[10px] text-gray-400 uppercase tracking-wider mt-0.5' }, new Date(a.createdAt).toLocaleString())
+        )
+      ),
+
+      // Body — title matches the weight/case AnnouncementBanner uses for the same text, so the
+      // collapsed preview and the expanded modal don't read as two different styles.
+      el('div', { className: 'p-6 space-y-4' },
+        a.shortDescription ? el('h3', { className: 'text-lg font-bold text-black' }, a.shortDescription) : null,
+        el('p', { className: 'text-sm text-black leading-relaxed whitespace-pre-wrap bg-gray-50 border border-gray-100 p-4' }, a.message)
+      ),
+
+      // Footer — Unpin is the actual decision here, so it gets the black primary button, same
+      // as Confirm/Cancel elsewhere in the app; Close is the safe no-op and stays a quiet outline.
+      el('div', { className: 'flex gap-4 p-6 pt-2' },
+        PendingButton('unpinAnnouncement:' + a.id, 'Unpin from Calendar', 'Removing…', () => { unpinAnnouncement(a.id); close(); }, 'flex-1 py-4 bg-black text-white font-bold uppercase tracking-widest text-xs hover:bg-gray-800 transition'),
+        el('button', { className: 'flex-1 py-4 border-2 border-gray-300 text-gray-500 font-bold uppercase tracking-widest text-xs hover:border-black hover:text-black transition', onClick: close }, 'Close')
       )
     )
   );
