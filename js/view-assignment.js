@@ -151,7 +151,18 @@ function HomeworkCard(hw, isTeacher) {
               sheets: 'bg-green-50 text-green-700 border-green-200'
             };
             const tc = typeColors[f.type] || 'bg-gray-50 text-gray-700 border-gray-200';
-            return el('div', { className: `flex items-center gap-1 px-2 py-0.5 border text-[10px] font-bold uppercase tracking-wider ${tc}` },
+            // Double-click opens the master file directly — read-only once students have
+            // already submitted against this assignment (so the teacher can't change it out
+            // from under work already turned in), fully editable otherwise. See the `locked`
+            // flag on openEditor() (actions.js) and isReadonly in EditorPage() (editor-doc.js).
+            return el('div', {
+              className: `flex items-center gap-1 px-2 py-0.5 border text-[10px] font-bold uppercase tracking-wider ${tc} cursor-pointer hover:brightness-95 transition`,
+              title: submissionCount > 0 ? 'Double-click to view (read-only — students have already submitted)' : 'Double-click to open and edit',
+              onDblclick: () => {
+                state._editorReturnView = state.view;
+                openEditor({ id: f.id, name: f.name, type: f.type, content: f.content }, false, null, submissionCount > 0);
+              }
+            },
               Icon(f.type, 'w-3 h-3'),
               el('span', { className: 'mx-1' }, f.name),
               el('button', {

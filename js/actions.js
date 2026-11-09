@@ -264,9 +264,13 @@ async function createFile(type) {
   openEditor(file);
 }
 
-function openEditor(file, isStudentCopy = false, studentFileId = null) {
+// `locked` forces the editor read-only regardless of submission status — used when a teacher
+// opens a master file straight from its assignment card (HomeworkCard() in view-assignment.js)
+// and students have already submitted against it, so editing it now wouldn't match what they
+// turned in. See the isReadonly computation in EditorPage() (editor-doc.js).
+function openEditor(file, isStudentCopy = false, studentFileId = null, locked = false) {
   state._editorReturnView = state._editorReturnView || state.view;
-  state.editorFile = { ...file, isStudentCopy, studentFileId };
+  state.editorFile = { ...file, isStudentCopy, studentFileId, locked };
   state._slidesCurrentIdx = 0;
   state.view = 'editor';
   render();

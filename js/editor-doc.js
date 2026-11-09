@@ -12,6 +12,10 @@ function EditorPage() {
   if (!file) return el('div', {}, 'No file open.');
 
   const isReadonlyByStudent = file.isStudentCopy && !!state.studentFiles.find(sf => sf.id === file.studentFileId)?.submittedAt && state.currentUser.role === 'student';
+  // A teacher's own master file, forced read-only by openEditor()'s `locked` flag when they
+  // double-click it from HomeworkCard() and submissions already exist for that assignment.
+  const isLockedByTeacher = !!file.locked && !file.isStudentCopy;
+  const isReadonly = isReadonlyByStudent || isLockedByTeacher;
 
   async function goBack() {
     await saveEditorFileNow();
@@ -22,9 +26,9 @@ function EditorPage() {
   }
 
   let editorContent;
-  if (file.type === 'doc') editorContent = DocEditor(file, isReadonlyByStudent);
-  else if (file.type === 'slides') editorContent = SlidesEditor(file, isReadonlyByStudent);
-  else editorContent = SheetsEditor(file, isReadonlyByStudent);
+  if (file.type === 'doc') editorContent = DocEditor(file, isReadonly);
+  else if (file.type === 'slides') editorContent = SlidesEditor(file, isReadonly);
+  else editorContent = SheetsEditor(file, isReadonly);
 
   const submittedFile = file.isStudentCopy ? state.studentFiles.find(sf => sf.id === file.studentFileId) : null;
 
@@ -35,7 +39,7 @@ function EditorPage() {
       el('input', {
         className: 'text-base font-bold text-black border-none outline-none bg-transparent flex-1 min-w-0',
         value: file.name,
-        readOnly: isReadonlyByStudent,
+        readOnly: isReadonly,
         onInput: (e) => { state.editorFile.name = e.target.value; }
       }),
       el('div', { className: 'ml-auto flex items-center gap-3' },
@@ -45,7 +49,7 @@ function EditorPage() {
         file.isStudentCopy && submittedFile?.submittedAt
           ? el('span', { className: 'text-xs font-bold text-green-600 px-3 py-1 bg-green-50 border border-green-200' }, '✓ Submitted')
           : null,
-        !isReadonlyByStudent ? el('button', {
+        !isReadonly ? el('button', {
           className: 'px-6 py-2 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition',
           onClick: async () => { await saveEditorFileNow(); }
         }, 'Save') : null,
@@ -57,7 +61,11 @@ function EditorPage() {
             ) : null
       )
     ),
-    isReadonlyByStudent ? el('div', { className: 'bg-yellow-50 border-b border-yellow-200 px-6 py-2 text-xs font-bold text-yellow-700 uppercase tracking-wider' }, '⚠ This file has been submitted and is now read-only') : null,
+    isReadonly ? el('div', { className: 'bg-yellow-50 border-b border-yellow-200 px-6 py-2 text-xs font-bold text-yellow-700 uppercase tracking-wider' },
+      isLockedByTeacher
+        ? '⚠ Students have already submitted this assignment — the file is read-only so it stays consistent with what they turned in'
+        : '⚠ This file has been submitted and is now read-only'
+    ) : null,
     el('div', { className: 'flex-1' }, editorContent)
   );
 }
