@@ -107,10 +107,12 @@ function openCreateAssignment(hw = null, presetClassroomId = null) {
   state.view = 'create-assignment';
   state.editingHomeworkId = hw ? hw.id : null;
   state.newHomework = hw
-    ? { name: hw.name, description: hw.description || '', points: hw.points || '', date: hw.date, classroomId: hw.classroomId, repeatWeeks: 1 }
-    : { name: '', description: '', points: '', date: '', classroomId: presetClassroomId || '', repeatWeeks: 1 };
+    ? { name: hw.name, description: hw.description || '', points: hw.points || '', date: hw.date, classroomId: hw.classroomId, repeatWeeks: 1, topics: [] }
+    : { name: '', description: '', points: '', date: '', classroomId: presetClassroomId || '', repeatWeeks: 1, topics: [] };
   state.assignedStudentIds = hw ? (hw.assignedStudentIds === 'all' ? 'all' : [...(hw.assignedStudentIds || [])]) : [];
   state.attachedFileIds = hw ? [...(hw.attachedFileIds || [])] : [];
+  echoReset();
+  if (hw) echoLoadTopics(hw.id);
   render();
 }
 
@@ -127,6 +129,7 @@ async function saveHomework() {
     due_date: date || null,
     classroom_id: Number(classroomId),
     assigned_all: assigned === 'all',
+    topics: state.newHomework.topics || [],
   };
 
   const isNew = !state.editingHomeworkId;
