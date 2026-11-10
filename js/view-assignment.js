@@ -338,7 +338,6 @@ function CreateAssignmentPage() {
     ),
     el('div', { className: 'max-w-5xl mx-auto px-8 py-10 grid grid-cols-1 lg:grid-cols-3 gap-10' },
       el('div', { className: 'lg:col-span-2 space-y-8' },
-        EchoPanel(),
         el('div', {},
           el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2' }, 'Title'),
           el('input', { className: 'w-full text-3xl font-light border-b-2 border-gray-200 focus:border-black outline-none py-2 text-black bg-transparent transition', placeholder: 'e.g. Chapter 5 Review', value: state.newHomework.name, onInput: (e) => { state.newHomework.name = e.target.value; } })

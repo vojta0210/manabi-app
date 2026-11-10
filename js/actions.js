@@ -111,7 +111,6 @@ function openCreateAssignment(hw = null, presetClassroomId = null) {
     : { name: '', description: '', points: '', date: '', classroomId: presetClassroomId || '', repeatWeeks: 1, topics: [] };
   state.assignedStudentIds = hw ? (hw.assignedStudentIds === 'all' ? 'all' : [...(hw.assignedStudentIds || [])]) : [];
   state.attachedFileIds = hw ? [...(hw.attachedFileIds || [])] : [];
-  echoReset();
   if (hw) echoLoadTopics(hw.id);
   render();
 }

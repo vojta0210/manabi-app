@@ -1,9 +1,12 @@
 // ==============================================
-// ECHO — AI drafting panel for teachers, shown on the New Assignment page.
-// Depends on: state.js, ui-core.js (el, render, runPending, PendingButton, showToast),
-// data.js (mapFile), mascots.js (EchoMascot, optional), config.js (sb).
-// Server side: supabase/functions/echo. Echo only ever fills in the form; nothing reaches
-// students until the teacher presses Assign.
+// ECHO — global floating assistant bubble. Teachers get a small chat-style panel that drafts
+// assignments/worksheets/templates; any other signed-in role sees a short "not yet" notice.
+// Mounted once, globally, from appendOverlays() in ui-core.js — reachable from any screen
+// (dashboard, a classroom, the editor), not just one page.
+// Depends on: state.js, ui-core.js (el, render, runPending, PendingButton, showToast, isPending),
+// data.js (mapFile), mascots.js (EchoMascot, optional), config.js (sb), actions.js (openCreateAssignment).
+// Server side: supabase/functions/echo. Echo only ever fills in a fresh New Assignment form;
+// nothing reaches students until the teacher presses Assign there.
 // ==============================================
 
 const ECHO_ERRORS = {
@@ -25,15 +28,18 @@ function EchoIcon(expression, size) {
 
 function echoState() {
   if (!state.echo) {
-    state.echo = { open: false, kind: 'assignment', subject: '', grade: '', topic: '', notes: '', draft: null, error: '', confirmReplace: false, remaining: null };
+    state.echo = { open: false, kind: 'assignment', subject: '', grade: '', topic: '', notes: '', draft: null, error: '', remaining: null };
   }
   return state.echo;
 }
 
+// Clears the current question/draft but keeps the panel open/closed as it was and the
+// day's remaining-requests count. Used for "ask something else", not on every page visit —
+// the bubble is global now, so navigating around the app no longer resets it.
 function echoReset() {
   const open = state.echo?.open || false;
-  state.echo = null;
-  echoState().open = open;
+  const remaining = state.echo?.remaining ?? null;
+  state.echo = { open, kind: 'assignment', subject: '', grade: '', topic: '', notes: '', draft: null, error: '', remaining };
 }
 
 // mapHomework() doesn't carry topics, so they are read on demand when editing.
@@ -47,7 +53,6 @@ async function echoLoadTopics(homeworkId) {
 async function echoGenerate() {
   const e = echoState();
   e.error = '';
-  e.confirmReplace = false;
   if (!e.topic.trim()) { e.error = ECHO_ERRORS.bad_request; render(); return; }
   await runPending('echoGenerate', async () => {
     const { data, error } = await sb.functions.invoke('echo', {
@@ -90,16 +95,15 @@ function echoBlocksToHtml(blocks) {
   return html;
 }
 
-async function echoApply() {
+// "Open in New Assignment": always lands on a FRESH assignment (openCreateAssignment() with
+// no args), pre-filled from the draft — there's no page to "replace text on" any more since
+// Echo can be invoked from anywhere, not just from inside an in-progress assignment form.
+async function echoUseDraft() {
   const e = echoState();
-  const hw = state.newHomework;
-  if ((hw.name.trim() || hw.description.trim()) && !e.confirmReplace) {
-    e.confirmReplace = true;
-    render();
-    return;
-  }
   const draft = e.draft;
+  if (!draft) return;
   await runPending('echoApply', async () => {
+    let fileToAttach = null;
     if (draft.worksheet.length > 0) {
       const { data, error } = await sb.from('files').insert({
         name: draft.title,
@@ -108,27 +112,30 @@ async function echoApply() {
         owner_id: state.currentUser.id,
       }).select().single();
       if (error) { e.error = 'Could not create the file: ' + error.message; return; }
-      const file = mapFile(data);
-      state.files.push(file);
-      state.attachedFileIds.push(file.id);
+      fileToAttach = mapFile(data);
     }
+    openCreateAssignment();
+    const hw = state.newHomework;
     hw.name = draft.title;
     hw.description = draft.instructions;
     if (draft.suggested_points !== null) hw.points = draft.suggested_points;
     hw.topics = draft.topics;
+    if (fileToAttach) {
+      state.files.push(fileToAttach);
+      state.attachedFileIds.push(fileToAttach.id);
+    }
     e.draft = null;
-    e.confirmReplace = false;
     e.open = false;
-    showToast('Draft added. Review it before assigning.');
+    showToast('Draft opened — review it and assign a classroom.');
   });
 }
 
-function EchoField(label, key, placeholder) {
+function EchoChatField(label, key, placeholder) {
   const e = echoState();
   return el('div', {},
-    el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2' }, label),
+    el('label', { className: 'block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1' }, label),
     el('input', {
-      className: 'w-full border-b-2 border-gray-200 focus:border-black outline-none py-2 text-black bg-transparent font-light text-base transition',
+      className: 'w-full border-b-2 border-gray-200 focus:border-black outline-none py-1.5 text-black bg-transparent font-light text-sm transition',
       placeholder, value: e[key],
       onInput: (ev) => { e[key] = ev.target.value; },
     })
@@ -137,84 +144,105 @@ function EchoField(label, key, placeholder) {
 
 function EchoWorksheetPreview(blocks) {
   let taskNumber = 0;
-  return el('div', { className: 'border-t border-gray-200 pt-3 space-y-2 max-h-72 overflow-y-auto' },
+  return el('div', { className: 'border-t border-gray-200 pt-2 mt-2 space-y-1.5 max-h-40 overflow-y-auto' },
     ...blocks.map(b => {
-      if (b.type === 'heading') return el('p', { className: 'font-bold text-black' }, b.text);
-      if (b.type === 'bullet') return el('p', { className: 'text-sm text-gray-700 pl-4' }, '• ' + b.text);
-      if (b.type === 'task') return el('p', { className: 'text-sm text-gray-700' }, `${++taskNumber}. ${b.text}`);
-      return el('p', { className: 'text-sm text-gray-700' }, b.text);
+      if (b.type === 'heading') return el('p', { className: 'font-bold text-black text-xs' }, b.text);
+      if (b.type === 'bullet') return el('p', { className: 'text-xs text-gray-700 pl-3' }, '• ' + b.text);
+      if (b.type === 'task') return el('p', { className: 'text-xs text-gray-700' }, `${++taskNumber}. ${b.text}`);
+      return el('p', { className: 'text-xs text-gray-700' }, b.text);
     })
   );
 }
 
-function EchoDraftPreview(draft) {
-  const e = echoState();
-  return el('div', { className: 'border-2 border-black p-5 space-y-3 bg-white' },
-    el('p', { className: 'text-xl font-bold text-black' }, draft.title),
-    el('p', { className: 'text-sm text-gray-700 whitespace-pre-wrap' }, draft.instructions),
-    el('div', { className: 'flex flex-wrap items-center gap-2' },
-      draft.suggested_points !== null ? el('span', { className: 'text-xs font-bold text-black' }, draft.suggested_points + ' points') : null,
-      ...draft.topics.map(t => el('span', { className: 'text-[10px] font-bold uppercase px-2 py-0.5 bg-gray-100 text-gray-700' }, t))
+function EchoDraftBubble(draft) {
+  return el('div', { className: 'space-y-3' },
+    el('div', { className: 'border-2 border-black p-3 space-y-2 bg-white' },
+      el('p', { className: 'text-base font-bold text-black' }, draft.title),
+      el('p', { className: 'text-xs text-gray-700 whitespace-pre-wrap' }, draft.instructions),
+      el('div', { className: 'flex flex-wrap items-center gap-1.5' },
+        draft.suggested_points !== null ? el('span', { className: 'text-[10px] font-bold text-black' }, draft.suggested_points + ' points') : null,
+        ...draft.topics.map(t => el('span', { className: 'text-[9px] font-bold uppercase px-1.5 py-0.5 bg-gray-100 text-gray-700' }, t))
+      ),
+      draft.worksheet.length > 0 ? EchoWorksheetPreview(draft.worksheet) : null
     ),
-    draft.worksheet.length > 0 ? EchoWorksheetPreview(draft.worksheet) : null,
-    el('p', { className: 'text-xs text-gray-400' }, 'AI can make mistakes. Check the content before assigning it.'),
-    el('div', { className: 'flex flex-wrap gap-3' },
-      PendingButton('echoApply', e.confirmReplace ? 'Replace my text' : 'Use this draft', 'Adding…', echoApply, 'px-6 py-2.5 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition'),
-      PendingButton('echoGenerate', 'Try again', 'Writing…', echoGenerate, 'px-6 py-2.5 bg-white text-black border-2 border-black text-xs font-bold uppercase tracking-widest hover:bg-gray-50 transition')
+    el('p', { className: 'text-[10px] text-gray-400' }, 'AI can make mistakes. Check the content before assigning it.'),
+    el('div', { className: 'flex flex-wrap gap-2' },
+      PendingButton('echoApply', 'Open in New Assignment', 'Opening…', echoUseDraft, 'px-3 py-2 bg-black text-white text-[11px] font-bold uppercase tracking-widest hover:bg-gray-800 transition'),
+      PendingButton('echoGenerate', 'Try again', 'Writing…', echoGenerate, 'px-3 py-2 bg-white text-black border-2 border-black text-[11px] font-bold uppercase tracking-widest hover:bg-gray-50 transition')
     )
   );
 }
 
-function EchoPanel() {
-  if (state.currentUser?.role !== 'teacher') return null;
+function EchoTeacherChatBody() {
   const e = echoState();
-  const toggle = () => { e.open = !e.open; render(); };
-
-  if (!e.open) {
-    return el('button', { className: 'w-full flex items-center gap-3 border-2 border-gray-200 hover:border-black p-3 text-left transition', onClick: toggle },
-      EchoIcon('happy', 40),
-      el('span', {},
-        el('span', { className: 'block text-sm font-bold text-black' }, 'Draft with Echo'),
-        el('span', { className: 'block text-xs text-gray-400' }, 'Assignments, worksheets and templates')
-      )
-    );
-  }
-
   const kinds = [['assignment', 'Assignment'], ['assignment_worksheet', 'With worksheet'], ['template', 'Template']];
   const busy = isPending('echoGenerate');
-  return el('div', { className: 'border-2 border-black p-5 space-y-5 bg-gray-50' },
-    el('div', { className: 'flex items-center justify-between' },
-      el('div', { className: 'flex items-center gap-3' },
-        EchoIcon(busy ? 'thinking' : 'happy', 40),
-        el('p', { className: 'text-sm font-bold text-black' }, 'Draft with Echo')
+  return el('div', { className: 'space-y-3' },
+    el('div', { className: 'bg-gray-50 border border-gray-200 px-3 py-2 text-xs text-gray-600' },
+      e.draft ? "Here's a draft:" : 'Tell me what to draft — a topic is enough — and I’ll put together a suggestion.'
+    ),
+    !e.draft ? el('div', { className: 'space-y-3' },
+      el('div', { className: 'flex flex-wrap gap-1.5' },
+        ...kinds.map(([value, label]) => el('button', {
+          className: `px-2.5 py-1 text-[10px] font-bold border-2 transition ${e.kind === value ? 'border-black bg-black text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'}`,
+          onClick: () => { e.kind = value; render(); },
+        }, label))
       ),
-      el('button', { className: 'text-xs font-bold text-gray-500 hover:text-black uppercase tracking-wider', onClick: toggle }, 'Close')
-    ),
-    el('div', { className: 'flex flex-wrap gap-2' },
-      ...kinds.map(([value, label]) => el('button', {
-        className: `px-3 py-1.5 text-xs font-bold border-2 transition ${e.kind === value ? 'border-black bg-black text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'}`,
-        onClick: () => { e.kind = value; render(); },
-      }, label))
-    ),
-    el('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-4' },
-      EchoField('Subject', 'subject', 'Matematika'),
-      EchoField('Grade', 'grade', '7. třída')
-    ),
-    EchoField('Topic', 'topic', 'Sčítání zlomků s různým jmenovatelem'),
-    el('div', {},
-      el('label', { className: 'block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2' }, 'Notes (optional)'),
+      el('div', { className: 'grid grid-cols-2 gap-3' },
+        EchoChatField('Subject', 'subject', 'Matematika'),
+        EchoChatField('Grade', 'grade', '7. třída')
+      ),
+      EchoChatField('Topic', 'topic', 'Sčítání zlomků s různým jmenovatelem'),
       el('textarea', {
-        className: 'w-full border-b-2 border-gray-200 focus:border-black outline-none py-2 text-black bg-transparent font-light text-base resize-none transition',
-        rows: 2, placeholder: 'Length, difficulty, what to focus on. Please leave out student names.', value: e.notes,
+        className: 'w-full border-b-2 border-gray-200 focus:border-black outline-none py-1.5 text-black bg-transparent font-light text-sm resize-none transition',
+        rows: 2, placeholder: 'Notes (optional) — please leave out student names.', value: e.notes,
         onInput: (ev) => { e.notes = ev.target.value; },
-      })
+      }),
+      e.error ? el('p', { className: 'text-xs font-bold text-red-600' }, e.error) : null,
+      el('div', { className: 'flex items-center gap-3' },
+        PendingButton('echoGenerate', 'Generate', 'Writing…', echoGenerate, 'px-4 py-2 bg-black text-white text-[11px] font-bold uppercase tracking-widest hover:bg-gray-800 transition'),
+        e.remaining !== null ? el('span', { className: 'text-[10px] text-gray-400' }, e.remaining + ' left today') : null
+      )
+    ) : EchoDraftBubble(e.draft)
+  );
+}
+
+function EchoComingSoonBody() {
+  return el('div', { className: 'bg-gray-50 border border-gray-200 px-3 py-3 text-xs text-gray-600' },
+    'Echo currently helps teachers draft assignments and templates. Help for students is on the way.'
+  );
+}
+
+function EchoChatPanel() {
+  const e = echoState();
+  const isTeacher = state.currentUser?.role === 'teacher';
+  const busy = isPending('echoGenerate');
+  return el('div', { className: 'w-80 max-h-[32rem] bg-white border-2 border-black shadow-xl flex flex-col' },
+    el('div', { className: 'flex items-center gap-3 border-b border-gray-200 px-4 py-3 shrink-0' },
+      EchoIcon(busy ? 'thinking' : 'happy', 32),
+      el('div', { className: 'flex-1 min-w-0' },
+        el('p', { className: 'text-sm font-bold text-black' }, 'Echo'),
+        el('p', { className: 'text-[10px] text-gray-400 truncate' }, isTeacher ? 'Assignment drafts & templates' : 'Coming soon for your role')
+      ),
+      isTeacher ? el('button', { className: 'text-gray-400 hover:text-black transition text-sm leading-none px-1', title: 'Ask something else', onClick: () => { echoReset(); render(); } }, '↺') : null,
+      el('button', { className: 'text-gray-400 hover:text-black transition text-lg leading-none px-1', title: 'Close', onClick: () => { e.open = false; render(); } }, '×')
     ),
-    e.error ? el('p', { className: 'text-sm font-bold text-red-600' }, e.error) : null,
-    !e.draft ? el('div', { className: 'flex items-center gap-4' },
-      PendingButton('echoGenerate', 'Generate', 'Writing…', echoGenerate, 'px-6 py-2.5 bg-black text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition'),
-      e.remaining !== null ? el('span', { className: 'text-xs text-gray-400' }, e.remaining + ' requests left today') : null
-    ) : null,
-    e.draft ? EchoDraftPreview(e.draft) : null
+    el('div', { className: 'flex-1 overflow-y-auto px-4 py-3' }, isTeacher ? EchoTeacherChatBody() : EchoComingSoonBody())
+  );
+}
+
+// Mounted globally from appendOverlays() — a fixed bubble in the corner on every signed-in
+// screen. Clicking it opens/closes the small chat panel above it.
+function EchoBubble() {
+  if (!state.currentUser) return null;
+  const e = echoState();
+  return el('div', { className: 'fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3' },
+    e.open ? EchoChatPanel() : null,
+    el('button', {
+      className: 'w-14 h-14 rounded-full bg-white border-2 border-black shadow-lg flex items-center justify-center hover:scale-105 transition overflow-hidden shrink-0',
+      title: e.open ? 'Close Echo' : 'Open Echo',
+      onClick: () => { e.open = !e.open; render(); },
+    }, e.open ? el('span', { className: 'text-xl text-black' }, '×') : EchoIcon('happy', 40))
   );
 }
 

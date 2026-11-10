@@ -158,8 +158,8 @@ function App() {
   appendOverlays(root);
 }
 
-// Toast + confirm dialog float above every screen (auth, editor, dashboard) — appended once
-// here rather than duplicated into each top-level view.
+// Toast + confirm dialog + the global Echo bubble float above every screen (auth, editor,
+// dashboard) — appended once here rather than duplicated into each top-level view.
 function appendOverlays(root) {
   const toast = ToastDisplay();
   if (toast) root.appendChild(toast);
@@ -169,6 +169,9 @@ function appendOverlays(root) {
   // once here instead of duplicated into both views. See view-settings.js.
   const announcementModal = AnnouncementReadModal();
   if (announcementModal) root.appendChild(announcementModal);
+  // Echo's floating chat bubble — visible on every screen once signed in. See echo.js.
+  const echoBubble = EchoBubble();
+  if (echoBubble) root.appendChild(echoBubble);
 }
 
 function LoadingScreen() {
